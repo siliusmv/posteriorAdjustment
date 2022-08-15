@@ -111,6 +111,14 @@
         "Rcpp"
       ]
     },
+    "SparseM": {
+      "Package": "SparseM",
+      "Version": "1.81",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "2042cd9759cc89a453c4aefef0ce9aae",
+      "Requirements": []
+    },
     "askpass": {
       "Package": "askpass",
       "Version": "1.1",
@@ -849,6 +857,14 @@
         "shiny"
       ]
     },
+    "mnormt": {
+      "Package": "mnormt",
+      "Version": "2.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "dc13319a6a370e3ce538a1c17f58ce57",
+      "Requirements": []
+    },
     "moments": {
       "Package": "moments",
       "Version": "0.14.1",
@@ -1139,6 +1155,20 @@
       "Requirements": [
         "magrittr",
         "rlang"
+      ]
+    },
+    "quantreg": {
+      "Package": "quantreg",
+      "Version": "5.94",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "b8b2b861526c344a7e16e5991fa5a4ab",
+      "Requirements": [
+        "MASS",
+        "Matrix",
+        "MatrixModels",
+        "SparseM",
+        "survival"
       ]
     },
     "ragg": {
@@ -1463,6 +1493,18 @@
         "xtable"
       ]
     },
+    "sn": {
+      "Package": "sn",
+      "Version": "2.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "ffc089ed299a66df7bd60b49997a092d",
+      "Requirements": [
+        "mnormt",
+        "numDeriv",
+        "quantreg"
+      ]
+    },
     "sourcetools": {
       "Package": "sourcetools",
       "Version": "0.1.7",
@@ -1479,6 +1521,16 @@
       "Hash": "c5dad1d43440f0c426a6d29b30b333fa",
       "Requirements": [
         "lattice"
+      ]
+    },
+    "splancs": {
+      "Package": "splancs",
+      "Version": "2.01-43",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "264ea4aaafee411a53b6645a75640829",
+      "Requirements": [
+        "sp"
       ]
     },
     "stringi": {
@@ -1499,6 +1551,16 @@
         "glue",
         "magrittr",
         "stringi"
+      ]
+    },
+    "survival": {
+      "Package": "survival",
+      "Version": "3.4-0",
+      "Source": "Repository",
+      "Repository": "CRAN",
+      "Hash": "04411ae66ab4659230c067c32966fc20",
+      "Requirements": [
+        "Matrix"
       ]
     },
     "sys": {

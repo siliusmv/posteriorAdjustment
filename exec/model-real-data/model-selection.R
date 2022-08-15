@@ -480,8 +480,8 @@ tikz_plot(file.path(image_dir(), "model-selection2.pdf"),
           plot2, width = 10, height = 5)
 
 
-library(magick)
-image = magick::image_read_pdf(file.path(image_dir(), "model-selection1.pdf"))
-magick::image_write(image, file.path(image_dir(), "model-selection1.jpg"), format = "jpg", quality = 50)
-image = magick::image_read_pdf(file.path(image_dir(), "model-selection2.pdf"))
-magick::image_write(image, file.path(image_dir(), "model-selection2.jpg"), format = "jpg", quality = 50)
+#library(magick)
+#image = magick::image_read_pdf(file.path(image_dir(), "model-selection1.pdf"))
+#magick::image_write(image, file.path(image_dir(), "model-selection1.jpg"), format = "jpg", quality = 50)
+#image = magick::image_read_pdf(file.path(image_dir(), "model-selection2.pdf"))
+#magick::image_write(image, file.path(image_dir(), "model-selection2.jpg"), format = "jpg", quality = 50)

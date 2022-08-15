@@ -26,23 +26,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // dconditional_arma
-arma::vec dconditional_arma(arma::mat const& x, arma::mat const& sigma, double const nugget, bool const logd, bool const na_rm);
-RcppExport SEXP _posteriorAdjustment_dconditional_arma(SEXP xSEXP, SEXP sigmaSEXP, SEXP nuggetSEXP, SEXP logdSEXP, SEXP na_rmSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat const& >::type x(xSEXP);
-    Rcpp::traits::input_parameter< arma::mat const& >::type sigma(sigmaSEXP);
-    Rcpp::traits::input_parameter< double const >::type nugget(nuggetSEXP);
-    Rcpp::traits::input_parameter< bool const >::type logd(logdSEXP);
-    Rcpp::traits::input_parameter< bool const >::type na_rm(na_rmSEXP);
-    rcpp_result_gen = Rcpp::wrap(dconditional_arma(x, sigma, nugget, logd, na_rm));
-    return rcpp_result_gen;
-END_RCPP
-}
-// dconditional_arma2
-arma::vec dconditional_arma2(const arma::mat& x, const arma::sp_mat& A, const arma::sp_mat& B, const arma::mat& sigma0, const double nugget, const bool logd, const bool na_rm);
-RcppExport SEXP _posteriorAdjustment_dconditional_arma2(SEXP xSEXP, SEXP ASEXP, SEXP BSEXP, SEXP sigma0SEXP, SEXP nuggetSEXP, SEXP logdSEXP, SEXP na_rmSEXP) {
+arma::vec dconditional_arma(const arma::mat& x, const arma::sp_mat& A, const arma::sp_mat& B, const arma::mat& sigma0, const double nugget, const bool logd, const bool na_rm);
+RcppExport SEXP _posteriorAdjustment_dconditional_arma(SEXP xSEXP, SEXP ASEXP, SEXP BSEXP, SEXP sigma0SEXP, SEXP nuggetSEXP, SEXP logdSEXP, SEXP na_rmSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -53,15 +38,14 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< const double >::type nugget(nuggetSEXP);
     Rcpp::traits::input_parameter< const bool >::type logd(logdSEXP);
     Rcpp::traits::input_parameter< const bool >::type na_rm(na_rmSEXP);
-    rcpp_result_gen = Rcpp::wrap(dconditional_arma2(x, A, B, sigma0, nugget, logd, na_rm));
+    rcpp_result_gen = Rcpp::wrap(dconditional_arma(x, A, B, sigma0, nugget, logd, na_rm));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
     {"_posteriorAdjustment_dmvnorm_arma", (DL_FUNC) &_posteriorAdjustment_dmvnorm_arma, 4},
-    {"_posteriorAdjustment_dconditional_arma", (DL_FUNC) &_posteriorAdjustment_dconditional_arma, 5},
-    {"_posteriorAdjustment_dconditional_arma2", (DL_FUNC) &_posteriorAdjustment_dconditional_arma2, 7},
+    {"_posteriorAdjustment_dconditional_arma", (DL_FUNC) &_posteriorAdjustment_dconditional_arma, 7},
     {NULL, NULL, 0}
 };
 

@@ -6,8 +6,6 @@ downloads_dir = function() file.path(data_dir(), "downloads")
 #' @export
 image_dir = function() file.path(data_dir(), "images")
 #' @export
-tmp_dir = function() file.path(data_dir(), "tmp")
-#' @export
 results_dir = function() file.path(data_dir(), "results")
 #' @export
 cgeneric_dir = function() file.path(here::here(), "cgeneric")

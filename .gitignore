@@ -1,5 +1,6 @@
 
-tests/objects/*.rds
+# The auto-generated RcppExports.R file
+R/RcppExports.R
 
 # Compiled c-files
 *.so
@@ -8,8 +9,8 @@ tests/objects/*.rds
 
 *.DS_Store
 
-cgeneric-data
 
 # some data objects
+cgeneric-data
 inst/extdata/tmp/*
 inst/extdata/downloads/*

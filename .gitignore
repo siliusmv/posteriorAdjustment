@@ -1,7 +1,4 @@
 
-# The auto-generated RcppExports.R file
-R/RcppExports.R
-
 # Compiled c-files
 *.so
 *.o

@@ -1,0 +1,15 @@
+
+tests/objects/*.rds
+
+# Compiled c-files
+*.so
+*.o
+*/a.out
+
+*.DS_Store
+
+cgeneric-data
+
+# some data objects
+inst/extdata/tmp/*
+inst/extdata/downloads/*

@@ -1251,10 +1251,10 @@
     },
     "rgdal": {
       "Package": "rgdal",
-      "Version": "1.5-29",
+      "Version": "1.5-30",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "37d3572bfcec1d8a21bd33355e485069",
+      "Hash": "88aad818628c2fe8e2e7b072642b7371",
       "Requirements": [
         "sp"
       ]

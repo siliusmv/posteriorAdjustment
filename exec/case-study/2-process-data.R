@@ -16,13 +16,13 @@ coords = rasterToPoints(data[[1]], spatial = TRUE) |>
 
 # Transform coordinates from [m] to [km] to remove unneccesary zeros
 proj = st_crs(coords)[["input"]] |>
-  sub("units=m", "units=km", x = _) |>
+  sub(pattern = "units=m", replacement = "units=km") |>
   st_crs()
 coords = st_transform(coords, proj)
 
 # Get the times of the data
 times = colnames(data[1, 1]) |>
-  sub("X", "", x = _) |>
+  sub(pattern = "X", replacement = "") |>
   lubridate::ymd_hms()
 
 # Extract the data into a matrix

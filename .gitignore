@@ -9,5 +9,3 @@
 
 # some data objects
 cgeneric-data
-inst/extdata/tmp/*
-inst/extdata/downloads/*

@@ -10,21 +10,18 @@ results_dir = function() file.path(data_dir(), "results")
 #' @export
 cgeneric_dir = function() file.path(here::here(), "cgeneric")
 
+#' Compile and link a cgeneric file so it can be used by R-INLA.
 #' @export
-compile_cgeneric = function(name) {
+compile_cgeneric = function(name, compiler = "gcc") {
   files = file.path(cgeneric_dir(), paste0(name, c(".c", ".o", ".so")))
-  shell_safe_files = shQuote(files)
-  if (Sys.info()["sysname"] == "Darwin") {
-    command = "gcc-11"
-  } else {
-    command = "gcc"
-  }
+  # Compile the cgeneric code
   execute_shell_script(
-    command = command,
-    args = c(paste0("-Wall -fopenmp -fpic -g -O -c -o"), shell_safe_files[2], shell_safe_files[1]))
+    command = compiler,
+    args = c(paste0("-Wall -fpic -g -O -c -o"), shQuote(files[2]), shQuote(files[1])))
+  # Perform linking to create the shared object that can be used by R-INLA
   execute_shell_script(
-    command = command,
-    args = c("-fopenmp -shared -o", shell_safe_files[3], shell_safe_files[2]))
+    command = compiler,
+    args = c("-shared -o", shQuote(files[3]), shQuote(files[2])))
   file.remove(files[2])
 }
 
@@ -50,9 +47,12 @@ log_mean_exp = function(x, na.rm = FALSE) {
   log_sum_exp(x, na.rm) - log(sum(!is.na(x)))
 }
 
+#' Compute the Euclidean distance between x and y, where
+#' x is either a row vector, or a matrix of row vectors,
+#' and y is a matrix of row vectors
 #' @export
 dist_euclid = function(x, y) {
-  stopifnot(is.matrix(y))
+  if (!is.matrix(y)) y = matrix(y, ncol = 1)
   if (is.matrix(x)) {
     res = dist_euclid_mat_mat(x, y)
   } else {
@@ -61,29 +61,38 @@ dist_euclid = function(x, y) {
   res
 }
 
+#' Execute a shell script, and provide feedback if it crashes
 #' @export
 execute_shell_script = function(command, args, ...) {
   output = system2(command, args, ...)
   success = (output == 0)
   if (!success) {
     formatted_args = paste(args, collapse = " ")
-    stop("shell script ", command, " failed with arguments ", formatted_args)
+    stop("shell script ", command,
+         " gave error code ", output,
+         " with arguments ", formatted_args)
   }
   0
 }
 
+#' Create a progress bar for tracking long-running processes.
+#' This is a thin wrapper around the progress package
 #' @export
 progress_bar = function(n) {
   pb = progress::progress_bar$new(
     format = ":percent [:bar] time elapsed: :elapsedfull, eta: :eta",
     total = n, width = 70, clear = FALSE)
-  res = list()
-  res$terminate = pb$terminate
-  # pb throws an error if we tick too many times. I don't want that to happen
-  res$tick = function(...) tryCatch(pb$tick(...), error = function(e) NULL)
+  # pb$tick() throws an error if we tick too many times, which can potentially stop
+  # a script that is otherwise working fine. We don't want that to happen,
+  # so we change the tick function slightly
+  res = list(
+    terminate = pb$terminate,
+    tick = function(...) tryCatch(pb$tick(...), error = function(e) NULL))
   res
 }
 
+#' Turn an R plot into a beautiful pdf made by LaTeX and TikZ,
+#' using the tikzDevice package
 #' @export
 tikz_plot = function(file, plot = NULL, expression = NULL, ...) {
   # Ensure that you are on an operating system that you have tested
@@ -146,15 +155,9 @@ tikz_plot = function(file, plot = NULL, expression = NULL, ...) {
 
 dist_euclid_vec_mat = function(x, y) {
   stopifnot(length(x) == ncol(y))
-  tmp = 0
-  for (i in seq_along(x)) {
-    tmp = tmp + (x[i] - y[, i])^2
-  }
-  sqrt(as.numeric(tmp))
+  apply(y, 1, function(y) sqrt(sum((x - y)^2)))
 }
 
-dist_euclid_mat_mat = function(x, y) {
-  sapply(
-    X = seq_len(nrow(x)),
-    FUN = function(i) dist_euclid_vec_mat(x[i, ], y))
+dist_euclid_mat_mat2 = function(x, y) {
+  apply(x, 1, dist_euclid_vec_mat, y = y)
 }

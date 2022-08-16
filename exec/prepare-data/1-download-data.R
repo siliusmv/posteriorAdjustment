@@ -18,4 +18,6 @@ args = c(
 
 filename = file.path(downloads_dir(), "radar.nc")
 
+# This will take some time, and may need to be restarted several times due
+# to connection problems
 download(urls, args, filename)

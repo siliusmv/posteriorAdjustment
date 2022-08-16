@@ -28,6 +28,9 @@ compile_cgeneric = function(name) {
   file.remove(files[2])
 }
 
+#' Compute the logarithm of the sum of the exponents of a vector x.
+#' This function is usable in settings where components x_i of x are so large/big that
+#' exp(x_i) = Inf, or exp(x_i) = 0
 #' @export
 log_sum_exp = function(x, na.rm = FALSE) {
   m = max(x, na.rm = na.rm)
@@ -39,11 +42,13 @@ log_sum_exp = function(x, na.rm = FALSE) {
   res
 }
 
+#' Compute the logarithm of the mean of the exponents of a vector x.
+#' This function is usable in settings where components x_i of x are so large/big that
+#' exp(x_i) = Inf, or exp(x_i) = 0
 #' @export
 log_mean_exp = function(x, na.rm = FALSE) {
   log_sum_exp(x, na.rm) - log(sum(!is.na(x)))
 }
-
 
 #' @export
 dist_euclid = function(x, y) {
@@ -54,21 +59,6 @@ dist_euclid = function(x, y) {
     res = dist_euclid_vec_mat(x, y)
   }
   res
-}
-
-dist_euclid_vec_mat = function(x, y) {
-  stopifnot(length(x) == ncol(y))
-  tmp = 0
-  for (i in seq_along(x)) {
-    tmp = tmp + (x[i] - y[, i])^2
-  }
-  sqrt(as.numeric(tmp))
-}
-
-dist_euclid_mat_mat = function(x, y) {
-  sapply(
-    X = seq_len(nrow(x)),
-    FUN = function(i) dist_euclid_vec_mat(x[i, ], y))
 }
 
 #' @export
@@ -152,4 +142,19 @@ tikz_plot = function(file, plot = NULL, expression = NULL, ...) {
   tmp_filename = tail(strsplit(tmp, "/")[[1]], 1)
   files_to_clean = grep(tmp_filename, list.files(full.names = TRUE), value = TRUE)
   file.remove(files_to_clean)
+}
+
+dist_euclid_vec_mat = function(x, y) {
+  stopifnot(length(x) == ncol(y))
+  tmp = 0
+  for (i in seq_along(x)) {
+    tmp = tmp + (x[i] - y[, i])^2
+  }
+  sqrt(as.numeric(tmp))
+}
+
+dist_euclid_mat_mat = function(x, y) {
+  sapply(
+    X = seq_len(nrow(x)),
+    FUN = function(i) dist_euclid_vec_mat(x[i, ], y))
 }

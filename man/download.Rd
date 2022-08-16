@@ -2,14 +2,22 @@
 % Please edit documentation in R/download-data.R
 \name{download}
 \alias{download}
-\title{Given a list of lists of urls from https://thredds.met.no,
+\title{Given a vector of urls from https://thredds.met.no,
 download data using the arguments args,
-then concatenate all the data and save it into the file filename}
+then concatenate all the data and save it into the file filename.
+Underways, all the data are downloaded in a temporary directory.
+Since it may take a long time to download all the data, and connection
+issues may arise, the function only downloads data from a certain url
+if the tempfile for that url does not already exist}
 \usage{
 download(urls, args, filename)
 }
 \description{
-Given a list of lists of urls from https://thredds.met.no,
+Given a vector of urls from https://thredds.met.no,
 download data using the arguments args,
-then concatenate all the data and save it into the file filename
+then concatenate all the data and save it into the file filename.
+Underways, all the data are downloaded in a temporary directory.
+Since it may take a long time to download all the data, and connection
+issues may arise, the function only downloads data from a certain url
+if the tempfile for that url does not already exist
 }

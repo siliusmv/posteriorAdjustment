@@ -16,6 +16,11 @@ sigma = 1 # Standard deviance of the Gaussian random field
 rho = 12 # Range of the Gaussian random field
 tau = 100 # Precision of the nugget effect
 
+# Draw all the locations randomly
+set.seed(1)
+loc = matrix(runif(n_loc * 2) * domain_size, ncol = 2)
+dist = as.matrix(dist(loc))
+
 # Matérn correlation function
 matern_corr = function(dist, rho, nu = 1.5) {
   kappa = sqrt(8 * nu) / rho
@@ -23,11 +28,6 @@ matern_corr = function(dist, rho, nu = 1.5) {
   res[dist == 0] = 1
   res
 }
-
-# Draw all the locations randomly
-set.seed(1)
-loc = matrix(runif(n_loc * 2) * domain_size, ncol = 2)
-dist = as.matrix(dist(loc))
 
 # Compute covariance matrix
 cov_mat = matern_corr(dist, rho) * sigma^2

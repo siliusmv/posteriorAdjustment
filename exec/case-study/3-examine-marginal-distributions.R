@@ -30,11 +30,7 @@ df = lapply(
   FUN = function(i) {
     res = list()
     for (j in seq_along(r)) {
-      F = sliding_window_marginal(
-        data = radar$data,
-        coords = coords,
-        center = coords[i, ],
-        radius = r[j])
+      F = aggregated_ecdf(radar$data, coords, coords[i, ], r[j])
       quantiles = quantile(environment(F)$F, probs = probs) |>
         unname()
       res[[j]] = data.frame(

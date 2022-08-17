@@ -1,4 +1,25 @@
 
+#' Compute the aggregated empirical cumulative distribution function for all
+#' data inside a circle with a given radius. Input variables are:
+#' data: An (n x d)-dimensional matrix of observations.
+#' coords: An (d x 2)-dimensional matrix with the coordinates of the data.
+#' center: A 2-dimensional vector containing the coordinates of the center we use
+#'   for computing the aggregated ECDF.
+#' radius: The radius of the circle used for computing the aggregated ECDF.
+#' @export
+aggregated_ecdf = function(data, coords, center, radius) {
+  stopifnot(ncol(data) == nrow(coords))
+  window_index = extract_thinned_out_circles(
+    coords = coords,
+    center = center,
+    n = 1,
+    r = radius,
+    index_only = TRUE)
+  x = as.numeric(data[, window_index])
+  marginal_distribution(x)
+}
+
+
 #' Given a matrix of coordinates on a regular grid, extract a subset of the coordinates
 #' that consists of circles centred around some center, with varying degrees of
 #' densities. The input variables are:
@@ -95,18 +116,6 @@ locate_nonregular_grids = function(loc, s0_index, n = 1, r = Inf) {
   }
   res$s0_index = unlist(res$s0_index)
   res
-}
-
-#' @export
-sliding_window_marginal = function(data, coords, center, radius) {
-  window_index = extract_thinned_out_circles(
-    coords = coords,
-    center = center,
-    n = 1,
-    r = radius,
-    index_only = TRUE)
-  x = as.numeric(data[, window_index])
-  marginal_distribution(x)
 }
 
 #' @export

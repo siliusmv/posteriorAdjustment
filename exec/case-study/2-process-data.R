@@ -28,6 +28,7 @@ times = colnames(data[1, 1]) |>
 # Extract the data into a matrix
 data_matrix = raster::as.matrix(data)
 colnames(data_matrix) = NULL
+data_matrix = t(data_matrix)
 
 mydata = list(
   data = data_matrix,

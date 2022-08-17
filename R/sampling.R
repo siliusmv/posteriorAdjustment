@@ -1,16 +1,4 @@
 
-#' This is a wrapper for the inla.qsample() function for sampling from a Gaussian
-#' random field with sparse precision matrix Q. The wrapper allows us to get
-#' reproduceable results if the seed outside the function scope is known.
-#' It also suppresses warnings and removes some unnecessary column and row names
-#' @export
-rnorm_spde = function(n, Q, ...) {
-  res = suppressWarnings(INLA::inla.qsample(n, Q, seed = round(runif(1, 0, 1e6)), ...))
-  colnames(res) = NULL
-  rownames(res) = NULL
-  res
-}
-
 #' Sample from the global conditional extremes distribution of [x | max(x) > t],
 #' using the simulation algorithm of Keef et al. (2013).
 #' The arguments of the function are:
@@ -91,8 +79,8 @@ keef_sampling = function(n,
       b_func = b_func,
       Q = Q,
       tau = tau,
-      dist = dist_to_s0,
-      dist_from_mesh = dist_to_s0_from_mesh,
+      dist_to_s0 = dist_to_s0,
+      dist_to_s0_from_mesh = dist_to_s0_from_mesh,
       A = A)
 
     # Add the value of y0 to the correct location in the samples
@@ -183,5 +171,17 @@ rconditional = function(y0,
     res[[i]] = a + as.matrix(A[[i]] %*% z[, index]) + rnorm(length(a), sd = tau^-.5)
   }
 
+  res
+}
+
+#' This is a wrapper for the inla.qsample() function for sampling from a Gaussian
+#' random field with sparse precision matrix Q. The wrapper allows us to get
+#' reproduceable results if the seed outside the function scope is known.
+#' It also suppresses warnings and removes some unnecessary column and row names
+#' @export
+rnorm_spde = function(n, Q, ...) {
+  res = suppressWarnings(INLA::inla.qsample(n, Q, seed = round(runif(1, 0, 1e6)), ...))
+  colnames(res) = NULL
+  rownames(res) = NULL
   res
 }

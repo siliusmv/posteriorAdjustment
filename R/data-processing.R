@@ -92,7 +92,7 @@ extract_thinned_out_circles = function(coords,
 
 #' @export
 locate_nonregular_grids = function(loc, s0_index, n = 1, r = Inf) {
-  stop("This is only used in extract_extreme_fields. Do we need a separate function for this???")
+  warning("This is only used in extract_extreme_fields. Do we need a separate function for this???")
   stopifnot(1 <= min(s0_index) && max(s0_index) <= nrow(loc))
   res = list(
     s0_index = list(),

@@ -158,6 +158,6 @@ dist_euclid_vec_mat = function(x, y) {
   apply(y, 1, function(y) sqrt(sum((x - y)^2)))
 }
 
-dist_euclid_mat_mat2 = function(x, y) {
+dist_euclid_mat_mat = function(x, y) {
   apply(x, 1, dist_euclid_vec_mat, y = y)
 }

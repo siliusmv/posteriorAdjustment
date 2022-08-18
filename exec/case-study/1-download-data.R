@@ -1,7 +1,9 @@
 devtools::load_all()
 
 # ==============================================================================
-# Download radar data
+# Download radar data.
+# This script requires that you have installed the CDO program on your computer.
+# See https://code.mpimet.mpg.de/projects/cdo for info and installation of the program.
 # ==============================================================================
 
 # Find all valid urls containing radar data

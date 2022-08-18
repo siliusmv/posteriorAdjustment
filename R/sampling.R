@@ -6,7 +6,7 @@
 #' a_func: Function a(y0, dist_to_s0) that takes in two vectors and returns a
 #'   matrix where element (i, j) is the value of a(y0[j], dist_to_s0[i]).
 #' b_func: Function b(y0, dist_to_s0) that takes in two vectors and returns a
-#'   matrix where element (i, j) is the value of a(y0[j], dist_to_s0[i]).
+#'   matrix where element (i, j) is the value of b(y0[j], dist_to_s0[i]).
 #'   b_func is different from a_func in that a_func requires the distance to s0
 #'   for all locations with observations, while b_func requires the distance to s0
 #'   for all locations on the triangular mesh used for defining the SPDE.

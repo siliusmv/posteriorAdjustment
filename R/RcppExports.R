@@ -11,6 +11,23 @@ dmvnorm_arma <- function(x, mean, sigma, logd = FALSE) {
     .Call(`_posteriorAdjustment_dmvnorm_arma`, x, mean, sigma, logd)
 }
 
+#' Compute the (log-)likelihood of the conditional extremes distribution when
+#' a and b are given, in the sense that a has already been subtracted in x,
+#' while b is assumed to not depend on y0 and given in a diagonal matrix form.
+#' 
+#' The input variables are:
+#' x: an (n x d)-dimensional matrix of observations where a has already been subtracted.
+#' A: The projection matrix used for building the SPDE approximation
+#' B: A diagonal (m x m)-dimensional matrix containing the values of b at the m
+#'   triangular mesh nodes. b is assumed to not depend on y0.
+#' sigma0: The covariance matrix of the m Gaussian random variables in the triangular mesh.
+#' nugget: The variance of the nugget effect.
+#' logd: Boolean explaining if we should return the log-likelihood or the likelihood.
+#' na_rm: Boolean explaining how we should treat NA values. If na_rm = false, then
+#'   any column of x that returns an NA value will result in an NA value in the output.
+#'   If na_rm = true, then we remove the NA values before computing the likelihood.
+#'   So if e.g. a column has 3 NA variables, then we remove these, and then we compute
+#'   the likelihood for a (d-3)-dimensional Gaussian random variable.
 dconditional_arma <- function(x, A, B, sigma0, nugget, logd = TRUE, na_rm = TRUE) {
     .Call(`_posteriorAdjustment_dconditional_arma`, x, A, B, sigma0, nugget, logd, na_rm)
 }

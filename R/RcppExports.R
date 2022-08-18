@@ -28,7 +28,11 @@ dmvnorm_arma <- function(x, mean, sigma, logd = FALSE) {
 #'   If na_rm = true, then we remove the NA values before computing the likelihood.
 #'   So if e.g. a column has 3 NA variables, then we remove these, and then we compute
 #'   the likelihood for a (d-3)-dimensional Gaussian random variable.
-dconditional_arma <- function(x, A, B, sigma0, nugget, logd = TRUE, na_rm = TRUE) {
-    .Call(`_posteriorAdjustment_dconditional_arma`, x, A, B, sigma0, nugget, logd, na_rm)
+dconditional_no_beta <- function(x, A, b, sigma0, nugget, logd = TRUE, na_rm = TRUE) {
+    .Call(`_posteriorAdjustment_dconditional_no_beta`, x, A, b, sigma0, nugget, logd, na_rm)
+}
+
+dconditional <- function(x, A, B, sigma0, nugget, logd = TRUE, na_rm = TRUE) {
+    .Call(`_posteriorAdjustment_dconditional`, x, A, B, sigma0, nugget, logd, na_rm)
 }
 

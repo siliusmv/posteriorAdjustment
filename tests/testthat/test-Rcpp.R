@@ -1,3 +1,8 @@
+devtools::load_all()
+library(microbenchmark)
+library(mvtnorm)
+library(mvnfast)
+library(bayesm)
 
 set.seed(123)
 sigma = bayesm::rwishart(10, diag(8))$IW
@@ -19,16 +24,14 @@ m1 = microbenchmark::microbenchmark(
 m1
 
 # ==============================================================================
-# Test dconditional_arma
+# Test dconditional
 # ==============================================================================
 
-devtools::load_all()
-library(sf)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
+library(parallel)
+library(pbapply)
 library(INLA)
-library(inlabru)
+library(Matrix)
+library(sf)
 
 threshold = qlaplace(.95) # The threshold t for defining the conditional extremes model
 n_cores = 6 # Run code in parallel
@@ -131,17 +134,22 @@ b = b_func(1, dist_to_s0_from_mesh[[i]])
 x = y[[i]] - a_func(y0[[i]], dist_to_s0[[i]])
 A = A_mats[[i]]
 B = Matrix::Diagonal(length(b), as.numeric(b))
+B2 = do.call(cbind, rep(list(b), ncol(x)))
 sigma0 = cov_mat_func()
 nugget = 1 / tau
 
 args = list(
   x = x,
   A = A,
-  B = B,
+  #B = B,
+  b = b,
   sigma0 = sigma0,
   nugget = nugget,
   logd = TRUE,
   na_rm = TRUE)
+args2 = args
+args2$b = NULL
+args2$B = B2
 
 d1 = local({
   sigma = as.matrix(A %*% B %*% sigma0 %*% B %*% t(A)) + diag(nugget, nrow(A))
@@ -165,9 +173,11 @@ d2 = local({
         log = TRUE)
     })
 })
-d3 = do.call(dconditional_arma, args)
+d3 = do.call(dconditional_no_beta, args)
+d4 = do.call(dconditional, args2)
 summary(as.numeric(d1 - d2))
 summary(as.numeric(d1 - d3))
+summary(as.numeric(d1 - d4))
 
 m2 = microbenchmark::microbenchmark(
   d1 = local({
@@ -195,5 +205,6 @@ m2 = microbenchmark::microbenchmark(
           log = TRUE)
       })
   }),
-  d3 = do.call(dconditional_arma, args))
+  d3 = do.call(dconditional_no_beta, args),
+  d4 = do.call(dconditional, args2))
 m2

@@ -73,8 +73,9 @@ double dmvnorm_double_fast(arma::vec const &x,
 			   arma::mat const &sigma) {
   arma::uword const d = x.n_rows;
   arma::mat const chol = arma::chol(sigma, "lower");
-  assert(chol.n_cols == d);
-  assert(chol.n_rows == d);
+  if (chol.n_cols != d || chol.n_rows != d) {
+    stop("Dimensions of x and chol do not correspond");
+  }
   double out =
     - arma::sum(log(chol.diag())) - (double)d * 0.5 * log2pi;
     
@@ -85,16 +86,35 @@ double dmvnorm_double_fast(arma::vec const &x,
   return out;
 }
 
-// Compute Σ = A * B * Σ0 * B * A'
+// Compute Σ = A * B * Σ0 * B * A', where B is a diagonal
+// matrix containing the values of b
 arma::mat sigma_func(arma::sp_mat const &A,
-		     arma::sp_mat const &B,
+		     arma::vec const &b,
 		     arma::mat const &sigma,
 		     double const nugget) {
-  arma::mat tmp = B * sigma * B;
-  arma::mat res = A * tmp * A.t();
+  arma::mat res = sigma;
+  arma::uword const d = b.size();
+  for (arma::uword i = 0; i < d; ++i) {
+    for (arma::uword j = 0; j < d; ++j) {
+      res.at(j, i) *= b.at(i) * b.at(j);
+    }
+  }
+  res = A * res * A.t();
   res.diag() += nugget;
   return res;
 }
+
+// arma::mat sigma_func(arma::sp_mat const &A,
+// 		     arma::sp_mat const &B,
+// 		     arma::mat const &sigma,
+// 		     double const nugget) {
+//   arma::mat tmp = B * sigma * B;
+//   arma::mat res = A * tmp * A.t();
+//   res.diag() += nugget;
+//   return res;
+// }
+
+
 
 //' Compute the (log-)likelihood of the conditional extremes distribution when
 //' a and b are given, in the sense that a has already been subtracted in x,
@@ -114,16 +134,20 @@ arma::mat sigma_func(arma::sp_mat const &A,
 //'   So if e.g. a column has 3 NA variables, then we remove these, and then we compute
 //'   the likelihood for a (d-3)-dimensional Gaussian random variable.
 // [[Rcpp::export]]
-arma::vec dconditional_arma(arma::mat const &x,  
-			    arma::sp_mat const &A,
-			    arma::sp_mat const &B,
-			    arma::mat const &sigma0,
-			    double const nugget,
-			    bool const logd = true,
-			    bool const na_rm = true) { 
-  arma::mat sigma = sigma_func(A, B, sigma0, nugget);
+arma::vec dconditional_no_beta(arma::mat const &x,  
+			       arma::sp_mat const &A,
+			       arma::vec const &b,
+			       arma::mat const &sigma0,
+			       double const nugget,
+			       bool const logd = true,
+			       bool const na_rm = true) { 
   arma::uword const n = x.n_cols;
   arma::uword const d = x.n_rows;
+  arma::uword const m = b.size();
+  if (sigma0.n_cols != m || sigma0.n_rows != m) {
+    stop("The dimensions of sigma0 and b do not agree with each other");
+  }
+  arma::mat sigma = sigma_func(A, b, sigma0, nugget);
   arma::vec out(n);
   arma::mat const chol = arma::chol(sigma, "lower");
   double const lpdf_const =
@@ -155,6 +179,56 @@ arma::vec dconditional_arma(arma::mat const &x,
       forward_substitution_fast(z, chol, x.col(i));
       out(i) = lpdf_const - 0.5 * arma::dot(z, z);     
     }
+  }
+      
+  if (logd) {
+    return out;
+  } else {
+    return exp(out);
+  }
+}
+
+// [[Rcpp::export]]
+arma::vec dconditional(arma::mat const &x,  
+		       arma::sp_mat const &A,
+		       arma::mat const &B,
+		       arma::mat const &sigma0,
+		       double const nugget,
+		       bool const logd = true,
+		       bool const na_rm = true) { 
+  arma::uword const n = x.n_cols;
+  arma::uword const d = x.n_rows;
+  arma::uword const m = B.n_rows;
+  if (sigma0.n_cols != m || sigma0.n_rows != m) {
+    stop("The dimensions of sigma0 and B do not agree with each other");
+  }
+  if (B.n_cols != n) stop("The dimensions of B and x do not agree with each other");
+
+  arma::vec out(n);
+
+  arma::uword count;
+  arma::uvec good_index(d);
+  for (arma::uword j = 0; j < d; ++j) good_index(j) = j;
+
+  arma::mat sigma(d, d);
+  arma::vec z(d);
+
+  for (arma::uword i = 0; i < n; ++i) {
+    z = x.col(i);
+
+    if (na_rm) {
+      count = 0;
+      for (arma::uword j = 0; j < d; ++j) {
+	if (!NumericVector::is_na(z(j))) {
+	  good_index(count) = j;
+	  ++count;
+	}
+      }
+    }
+
+    sigma = sigma_func(A, B.col(i), sigma0, nugget);
+    out(i) = dmvnorm_double_fast(z(good_index.head(count)),
+				 sigma(good_index.head(count), good_index.head(count)));
   }
       
   if (logd) {

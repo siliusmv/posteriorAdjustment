@@ -2,7 +2,7 @@
 #' Compute the aggregated empirical cumulative distribution function for all
 #' data inside a circle with a given radius. Input variables are:
 #' data: An (n x d)-dimensional matrix of observations.
-#' coords: An (d x 2)-dimensional matrix with the coordinates of the data.
+#' coords: A (d x 2)-dimensional matrix with the coordinates of the data.
 #' center: A 2-dimensional vector containing the coordinates of the center we use
 #'   for computing the aggregated ECDF.
 #' radius: The radius of the circle used for computing the aggregated ECDF.
@@ -90,71 +90,92 @@ extract_thinned_out_circles = function(coords,
   res
 }
 
-#' @export
-locate_nonregular_grids = function(loc, s0_index, n = 1, r = Inf) {
-  warning("This is only used in extract_extreme_fields. Do we need a separate function for this???")
-  stopifnot(1 <= min(s0_index) && max(s0_index) <= nrow(loc))
-  res = list(
-    s0_index = list(),
-    s0 = list(),
-    loc_index = list(),
-    dist_to_s0 = list())
-  n_s0 = length(s0_index)
-  for (i in seq_len(n_s0)) {
-    res$loc_index[[i]] = extract_thinned_out_circles(
-      coords = loc,
-      center = loc[s0_index[i], , drop = FALSE],
-      n = n,
-      r = r,
-      index_only = TRUE)
-    res$loc_index[[i]] = res$loc_index[[i]][res$loc_index[[i]] != s0_index[i]]
-    res$s0_index[[i]] = s0_index[i]
-    res$s0[[i]] = loc[s0_index[i], , drop = FALSE]
-    res$dist_to_s0[[i]] = as.numeric(dist_euclid(
-      x = loc[s0_index[i], , drop = FALSE],
-      y = loc[res$loc_index[[i]], , drop = FALSE]))
-  }
-  res$s0_index = unlist(res$s0_index)
-  res
-}
-
+#' Search through data after threshold exceedances at a set of conditioning sites.
+#' Extract relevant information and observations for each of the threshold exceedances.
+#'
+#'
+#' The input variables are:
+#' data: An (n x d)-dimensional matrix of observations.
+#' coords: A (d x 2)-dimensional matrix with the coordinates of the data.
+#' s0_index: a vector of indices describing which of the d coordinates are chosen
+#'   as conditioning sites.
+#' threshold: The threshold t for the conditional extremes model.
+#' n, r: Used for only extracting a subset of the observations in a circle around
+#'   the conditioning site. See the docs for extract_thinned_out_circles for more info.
+#'
+#'
+#' The output of the function is a list where each element is a list or vector
+#' of length equal, containing these variables:
+#' s0_index: This is a subset of all the s0_indices given as input such that each
+#'   conditioning site has at least one threshold exceedance.
+#' s0: A list where element nr. i is a 2-dimensional vector with the coordinates of
+#'   conditioning site nr. i.
+#' obs_index: A list where element nr. i is a vector of indices for all the
+#'   locations in coords we use for performing inference using conditioning site nr. i.
+#' dist_to_s0: A list where element nr. i is a vector with all the distances between
+#'   conditioning site nr. i and the locations used for inference with conditioning
+#'   site nr. i.
+#' y0: A list where element nr. i is a vector of all threshold exceedances for
+#'   conditioning site nr. i.
+#' y: A list where element nr. i is a matrix consisting of one column per threshold
+#'   exceedance in y0[[i]]. Each column contains observations from the locations
+#'   described in obs_index[[i]].
+#' time_index: A list where element nr. i contains the times of all threshold
+#'   exceedances from conditioning site nr. i.
+#' n: A vector where element nr. i is the number of threshold exceedances at
+#'   conditioning site nr. i.
 #' @export
 extract_extreme_fields = function(data,
                                   coords,
                                   s0_index,
                                   threshold,
                                   n,
-                                  r,
-                                  rm.inf = TRUE) {
-  res = locate_nonregular_grids(
-    loc = coords,
-    s0_index = s0_index,
-    n = n,
-    r = r)
+                                  r) {
+  # s0_indices must be between 1 and nrow(coords)
+  stopifnot(1 <= min(s0_index) && max(s0_index) <= nrow(coords))
+  n_s0 = length(s0_index)
 
-  res$y0 = res$y = res$time_index = vector("list", length(s0_index))
-  good_index = NULL
-  for (i in seq_along(s0_index)) {
+  # Initialise the output
+  res = rep(list(vector("list", n_s0)), 6)
+  names(res) = c("s0", "obs_index", "dist_to_s0", "y0", "y", "time_index")
+  res$s0_index = s0_index
+
+  # Look through the conditioning sites
+  for (i in seq_len(n_s0)) {
+
+    # Extract all variables at s0 nr. i, and locate threshold exceedances
     y0 = data[, res$s0_index[i]]
     res$time_index[[i]] = which(y0 > threshold)
+    # If there are no threshold exceedances, skip to next conditioning site
     if (length(res$time_index[[i]]) == 0) next
+
+    # Extract all threshold exceedances
     res$y0[[i]] = y0[res$time_index[[i]]]
-    good_index = c(good_index, i)
-    res$y[[i]] = data[res$time_index[[i]], res$loc_index[[i]], drop = FALSE]
-    res$y[[i]] = t(res$y[[i]]) # we want each replicate of y to have one column
-    if (rm.inf && any(is.infinite(res$y[[i]]))) {
-      res$y[[i]][is.infinite(res$y[[i]])] = NA
-    }
+
+    # Locate the thinned out observations locations
+    res$obs_index[[i]] = extract_thinned_out_circles(
+      coords = coords,
+      center = coords[s0_index[i], , drop = FALSE],
+      n = n,
+      r = r,
+      index_only = TRUE)
+    res$obs_index[[i]] = res$obs_index[[i]][res$obs_index[[i]] != s0_index[i]]
+
+    # Extract all observations of interest for the threshold exceedances
+    res$y[[i]] = t(data[res$time_index[[i]], res$obs_index[[i]], drop = FALSE])
+
+    # Fill in information about s0 and the dist_to_s0
+    res$s0[[i]] = coords[s0_index[i], , drop = FALSE]
+    res$dist_to_s0[[i]] = as.numeric(dist_euclid(
+      x = coords[s0_index[i], , drop = FALSE],
+      y = coords[res$obs_index[[i]], , drop = FALSE]))
   }
 
-  res$s0 = res$s0[good_index]
-  res$s0_index = res$s0_index[good_index]
-  res$loc_index = res$loc_index[good_index]
-  res$dist_to_s0 = res$dist_to_s0[good_index]
-  res$y = res$y[good_index]
-  res$y0 = res$y0[good_index]
-  res$time_index = res$time_index[good_index]
+  # Only keep information about the conditioning sites with at least one threshold exceedance
+  good_index = which(sapply(res$time_index, length) > 0)
+  res = lapply(res, `[`, good_index)
 
+  # Find the number of threshold exceedances for each conditioning site
   res$n = sapply(res$y0, length)
 
   res

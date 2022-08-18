@@ -5,7 +5,7 @@
 \title{Compute the aggregated empirical cumulative distribution function for all
 data inside a circle with a given radius. Input variables are:
 data: An (n x d)-dimensional matrix of observations.
-coords: An (d x 2)-dimensional matrix with the coordinates of the data.
+coords: A (d x 2)-dimensional matrix with the coordinates of the data.
 center: A 2-dimensional vector containing the coordinates of the center we use
 for computing the aggregated ECDF.
 radius: The radius of the circle used for computing the aggregated ECDF.}
@@ -16,7 +16,7 @@ aggregated_ecdf(data, coords, center, radius)
 Compute the aggregated empirical cumulative distribution function for all
 data inside a circle with a given radius. Input variables are:
 data: An (n x d)-dimensional matrix of observations.
-coords: An (d x 2)-dimensional matrix with the coordinates of the data.
+coords: A (d x 2)-dimensional matrix with the coordinates of the data.
 center: A 2-dimensional vector containing the coordinates of the center we use
 for computing the aggregated ECDF.
 radius: The radius of the circle used for computing the aggregated ECDF.

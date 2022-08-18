@@ -800,14 +800,6 @@
       "Hash": "7ce2733a9826b3aeb1775d56fd305472",
       "Requirements": []
     },
-    "matrixStats": {
-      "Package": "matrixStats",
-      "Version": "0.61.0",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "b8e6221fc11247b12ab1b055a6f66c27",
-      "Requirements": []
-    },
     "memoise": {
       "Package": "memoise",
       "Version": "2.0.1",
@@ -863,14 +855,6 @@
       "Source": "Repository",
       "Repository": "CRAN",
       "Hash": "dc13319a6a370e3ce538a1c17f58ce57",
-      "Requirements": []
-    },
-    "moments": {
-      "Package": "moments",
-      "Version": "0.14.1",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "bb94fd8ee5f7f127eae2bddbff26864d",
       "Requirements": []
     },
     "munsell": {
@@ -1415,19 +1399,6 @@
         "viridisLite"
       ]
     },
-    "scoringRules": {
-      "Package": "scoringRules",
-      "Version": "1.0.1",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "443fb7653ed5fbcf766e934850490696",
-      "Requirements": [
-        "MASS",
-        "Rcpp",
-        "RcppArmadillo",
-        "knitr"
-      ]
-    },
     "selectr": {
       "Package": "selectr",
       "Version": "0.4-2",
@@ -1713,14 +1684,6 @@
       "Requirements": [
         "xfun"
       ]
-    },
-    "txtplot": {
-      "Package": "txtplot",
-      "Version": "1.0-4",
-      "Source": "Repository",
-      "Repository": "CRAN",
-      "Hash": "9820d1970f0611413a0b813f5042dc32",
-      "Requirements": []
     },
     "units": {
       "Package": "units",

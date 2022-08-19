@@ -10,21 +10,6 @@ results_dir = function() file.path(data_dir(), "results")
 #' @export
 cgeneric_dir = function() file.path(here::here(), "cgeneric")
 
-#' Compile and link a cgeneric file so it can be used by R-INLA.
-#' @export
-compile_cgeneric = function(name, compiler = "gcc") {
-  files = file.path(cgeneric_dir(), paste0(name, c(".c", ".o", ".so")))
-  # Compile the cgeneric code
-  execute_shell_script(
-    command = compiler,
-    args = c(paste0("-Wall -fpic -g -O -c -o"), shQuote(files[2]), shQuote(files[1])))
-  # Perform linking to create the shared object that can be used by R-INLA
-  execute_shell_script(
-    command = compiler,
-    args = c("-shared -o", shQuote(files[3]), shQuote(files[2])))
-  file.remove(files[2])
-}
-
 #' Compute the logarithm of the sum of the exponents of a vector x.
 #' This function is usable in settings where components x_i of x are so large/big that
 #' exp(x_i) = Inf, or exp(x_i) = 0

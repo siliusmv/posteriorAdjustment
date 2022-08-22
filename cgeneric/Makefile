@@ -12,5 +12,6 @@ header-files = $(wildcard *.h)
 %.o: %.c %.h
 	$(GCC) -Wall -fpic -O -c -o $@ $<
 
-test: test.c smat-operations.o spde-precision.o
-	$(GCC) test.c smat-operations.o spde-precision.o -o test.o
+test: test1.c test2.c smat-operations.o spde-precision.o test-funcs.o
+	$(GCC) test1.c smat-operations.o spde-precision.o test-funcs.o -o test1.o
+	$(GCC) test2.c smat-operations.o spde-precision.o test-funcs.o -o test2.o

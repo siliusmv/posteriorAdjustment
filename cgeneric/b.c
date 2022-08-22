@@ -7,8 +7,8 @@
 #include <strings.h>
 
 #include "cgeneric.h"
-#include "smat-operations.h"
-#include "spde-precision.h"
+#include "smat-operations.c"
+#include "spde-precision.c"
 
 
 #define Calloc(n_, type_)  (type_ *)calloc((n_), sizeof(type_))

@@ -4,7 +4,7 @@
 \alias{execute_shell_script}
 \title{Execute a shell script, and provide feedback if it crashes}
 \usage{
-execute_shell_script(command, args, ...)
+execute_shell_script(command, args = character(), ...)
 }
 \description{
 Execute a shell script, and provide feedback if it crashes

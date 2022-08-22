@@ -7,7 +7,9 @@
 #include <strings.h>
 
 #include "cgeneric.h"
-#include "spde-funcs.h"
+#include "smat-operations.h"
+#include "spde-precision.h"
+
 
 #define Calloc(n_, type_)  (type_ *)calloc((n_), sizeof(type_))
 

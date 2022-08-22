@@ -48,7 +48,7 @@ dist_euclid = function(x, y) {
 
 #' Execute a shell script, and provide feedback if it crashes
 #' @export
-execute_shell_script = function(command, args, ...) {
+execute_shell_script = function(command, args = character(), ...) {
   output = system2(command, args, ...)
   success = (output == 0)
   if (!success) {
@@ -58,6 +58,16 @@ execute_shell_script = function(command, args, ...) {
          " with arguments ", formatted_args)
   }
   0
+}
+
+#' Call a makefile used for compiling and linking cgeneric scripts,
+#' in order to use them with R-INLA
+#' @export
+make_cgeneric = function(cmd) {
+  current_path = getwd()
+  on.exit(setwd(current_path))
+  setwd(cgeneric_dir())
+  execute_shell_script("make", cmd)
 }
 
 #' Create a progress bar for tracking long-running processes.

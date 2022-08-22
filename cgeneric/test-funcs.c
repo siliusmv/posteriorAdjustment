@@ -29,7 +29,7 @@ inla_cgeneric_data_tp read_cgeneric_data_from_dir(const char *dir) {
   char line[1024];
   for (int i = 0; i < filenames.n; ++i) {
     file = fopen(filenames.files[i], "r");
-    fgets(line, 1024, file);
+    assert(fgets(line, 1024, file) != NULL);
     fclose(file);
     if (!strcmp(line, "mat\n")) {
       res.n_mat += 1;
@@ -50,7 +50,7 @@ inla_cgeneric_data_tp read_cgeneric_data_from_dir(const char *dir) {
   int mat_count = 0, smat_count = 0;
   for (int i = 0; i < filenames.n; ++i) {
     file = fopen(filenames.files[i], "r");
-    fgets(line, 1024, file);
+    assert(fgets(line, 1024, file) != NULL);
     fclose(file);
     if (!strcmp(line, "mat\n")) {
       read_mat_from_file(filenames.files[i], res.mats[mat_count]);
@@ -102,15 +102,15 @@ file_list files_in_dir(const char * dirname) {
 void read_mat_from_file(char const * filename, inla_cgeneric_mat_tp * res) {
   FILE *file = fopen(filename, "r");
   char line[1024], *tmp;
-  fgets(line, 1024, file);
+  assert(fgets(line, 1024, file) != NULL);
   assert(!strcmp(line, "mat\n"));
-  fgets(line, 1024, file);
+  assert(fgets(line, 1024, file) != NULL);
   res->nrow = atoi(line);
-  fgets(line, 1024, file);
+  assert(fgets(line, 1024, file) != NULL);
   res->ncol = atoi(line);
   res->x = Calloc(res->nrow * res->ncol, double);
   for (int i = 0; i < res->nrow * res->ncol; i++) {
-    fgets(line, 1024, file);
+    assert(fgets(line, 1024, file) != NULL);
     res->x[i] = strtod(line, &tmp);
   }
   fclose(file);
@@ -120,19 +120,19 @@ void read_smat_from_file(char const * filename, inla_cgeneric_smat_tp * res) {
   FILE *file = fopen(filename, "r");
   char line[1024];
   char *token, *tmp;
-  fgets(line, 1024, file);
+  assert(fgets(line, 1024, file) != NULL);
   assert(!strcmp(line, "smat\n"));
-  fgets(line, 1024, file);
+  assert(fgets(line, 1024, file) != NULL);
   res->n = atoi(line);
-  fgets(line, 1024, file);
+  assert(fgets(line, 1024, file) != NULL);
   res->nrow = atoi(line);
-  fgets(line, 1024, file);
+  assert(fgets(line, 1024, file) != NULL);
   res->ncol = atoi(line);
   res->x = Calloc(res->n, double);
   res->i = Calloc(res->n, int);
   res->j = Calloc(res->n, int);
   for (int i = 0; i < res->n; ++i) {
-    fgets(line, 1024, file);
+    assert(fgets(line, 1024, file) != NULL);
     token = strtok(line, ";");
     res->i[i] = atoi(token);
     token = strtok(NULL, ";");

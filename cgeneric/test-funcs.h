@@ -8,15 +8,6 @@
 // and save the data into an inla_cgeneric_data_tp object
 inla_cgeneric_data_tp read_cgeneric_data_from_dir(char const * dir);
 
-// This is a struct used for keeping track of a list of n filenames
-typedef struct {
-  char **files;
-  int n;
-} file_list;
-
-// Locate all filenames in a directory, and return them as a file_list
-file_list files_in_dir(char const * dirname);
-
 // Read an inla_cgeneric_mat_tp from the file filename, and save it into the object res
 void read_mat_from_file(char const * filename, inla_cgeneric_mat_tp * res);
 

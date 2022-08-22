@@ -14,87 +14,34 @@ inla_cgeneric_data_tp read_cgeneric_data_from_dir(const char *dir) {
 
   // Preallocate the result
   inla_cgeneric_data_tp res;
-  res.n_mat = 0;
-  res.n_smat = 0;
+  res.n_mat = 3;
+  res.n_smat = 3;
   res.n_ints = 0;
   res.n_doubles = 0;
   res.n_chars = 0;
 
-  // Find all the files in the directory
-  file_list filenames = files_in_dir(dir);
-
-  // Open all files and read the first line, which states whether the file contains
-  // an inla_cgeneric_mat_tp or an inla_cgeneric_smat_tp
-  FILE * file;
-  char line[1024];
-  for (int i = 0; i < filenames.n; ++i) {
-    file = fopen(filenames.files[i], "r");
-    assert(fgets(line, 1024, file) != NULL);
-    fclose(file);
-    if (!strcmp(line, "mat\n")) {
-      res.n_mat += 1;
-    } else if (!strcmp(line, "smat\n")) {
-      res.n_smat += 1;
-    }
-  }
-
   // Allocate the correct number of mats/smats in res
   res.mats = Calloc(res.n_mat, inla_cgeneric_mat_tp *);
   res.smats = Calloc(res.n_smat, inla_cgeneric_smat_tp *);
-  for (int i = 0; i < res.n_mat; ++i) {
-    res.mats[i] = Calloc(1, inla_cgeneric_mat_tp);
-    res.smats[i] = Calloc(1, inla_cgeneric_smat_tp);
-  }
+
+  char * mat_filenames[3] = {"B0.txt", "B1.txt", "B2.txt"};
+  char * smat_filenames[3] = {"M0.txt", "M1.txt", "M2.txt"};
+  char full_path[1024];
 
   // Read all the mats/smats from the files and into the res object
-  int mat_count = 0, smat_count = 0;
-  for (int i = 0; i < filenames.n; ++i) {
-    file = fopen(filenames.files[i], "r");
-    assert(fgets(line, 1024, file) != NULL);
-    fclose(file);
-    if (!strcmp(line, "mat\n")) {
-      read_mat_from_file(filenames.files[i], res.mats[mat_count]);
-      mat_count += 1;
-    } else if (!strcmp(line, "smat\n")) {
-      read_smat_from_file(filenames.files[i], res.smats[smat_count]);
-      smat_count += 1;
-    }
+  for (int i = 0; i < 3; ++i) {
+    strcpy(full_path, dir);
+    strcat(full_path, "/");
+    strcat(full_path, mat_filenames[i]);
+    res.mats[i] = Calloc(1, inla_cgeneric_mat_tp);
+    read_mat_from_file(full_path, res.mats[i]);
+
+    strcpy(full_path, dir);
+    strcat(full_path, "/");
+    strcat(full_path, smat_filenames[i]);
+    res.smats[i] = Calloc(1, inla_cgeneric_smat_tp);
+    read_smat_from_file(full_path, res.smats[i]);
   }
-
-  return res;
-}
-
-file_list files_in_dir(const char * dirname) {
-
-  // Preallocate the result
-  file_list res;
-  int i = 0, max_size = 5;
-  res.files = Calloc(max_size, char *);
-
-  // Open the directory and loop through all available files
-  DIR *dir = opendir(dirname);
-  struct dirent *file;
-  while ((file = readdir(dir)) != NULL) {
-    // Ignore the "." and ".." files
-    if (strcmp(file->d_name, ".") && strcmp(file->d_name, "..")) {
-      // Possibly reallocate res.files, if there is no more available space
-      if (i == max_size) {
-	max_size *= 2;
-	res.files = realloc(res.files, max_size * sizeof(char *));
-      }
-      // Copy the filename into res.files[i]
-      res.files[i] = Calloc(1024, char);
-      strcpy(res.files[i], dirname);
-      strcat(res.files[i], "/");
-      strcat(res.files[i], file->d_name);
-      i += 1;
-    }
-  }
-  closedir(dir);
-  res.n = i;
-
-  // Reallocate res.files to free unused memory
-  res.files = realloc(res.files, res.n * sizeof(char *));
 
   return res;
 }

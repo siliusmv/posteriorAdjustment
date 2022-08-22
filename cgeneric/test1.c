@@ -22,14 +22,6 @@ int main(int argc, char * argv[]) {
 
   inla_cgeneric_data_tp data = read_cgeneric_data_from_dir("../cgeneric-data");
 
-  // Order the matrices correctly
-  inla_cgeneric_mat_tp *tmp_mat_pt = data.mats[0];
-  data.mats[0] = data.mats[2];
-  data.mats[2] = tmp_mat_pt;
-  inla_cgeneric_smat_tp *tmp_smat_pt = data.smats[0];
-  data.smats[0] = data.smats[2];
-  data.smats[2] = tmp_smat_pt;
-
   inla_cgeneric_smat_tp Q = spde_precision(log_rho, log_sigma, data.mats, data.smats);
   Q.name = Calloc(1, char);
   strcpy(Q.name, "Q");

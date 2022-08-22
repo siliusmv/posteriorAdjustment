@@ -11,15 +11,15 @@ mesh = inla.mesh.2d(
   boundary = list(inla.nonconvex.hull(loc, convex = -.3)),
   cutoff = 1,
   max.edge = 4)
-plot(mesh)
-points(loc)
+#plot(mesh)
+#points(loc)
 mesh$n
 
 # Create the SPDE on the mesh
 spde = inla.spde2.pcmatern(
   mesh,
-  prior.range = c(rho, .5),
-  prior.sigma = c(sigma, .5))
+  prior.range = c(1, .5),
+  prior.sigma = c(1, .5))
 
 # ====================================================================
 # Save the B- and M-matrices from the SPDE object in a file format

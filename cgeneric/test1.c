@@ -3,7 +3,7 @@
 #endif
 #include <math.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -34,11 +34,6 @@ int main(int argc, char * argv[]) {
   Q.name = Calloc(1, char);
   strcpy(Q.name, "Q");
   print_smat_as_mat(Q);
-
-  // upper_diag(&Q);
-  // sort_smat(&Q);
-  // print_smat(Q);
-  // printf("upper diag only: %d %d %d\n", Q.n, Q.nrow, Q.ncol);
 
   free_smat(&Q);
 

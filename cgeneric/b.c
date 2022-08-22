@@ -4,7 +4,7 @@
 #endif
 #include <math.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 
 #include "cgeneric.h"
 #include "smat-operations.c"

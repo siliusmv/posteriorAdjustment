@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
 #include <stdio.h>
 #include <dirent.h>
 

@@ -26,6 +26,10 @@ void diag_smat_mult(inla_cgeneric_smat_tp * A, diag_mat_tp const * D);
 // Set A = A * D
 void smat_diag_mult(inla_cgeneric_smat_tp * A, diag_mat_tp const * D);
 
+// Given a sparse matrix A and a diagonal matrix D,
+// Set A = D * A * D
+void diag_smat_diag_mult(inla_cgeneric_smat_tp * A, diag_mat_tp const * D);
+
 // Transpose the sparse matrix A in place
 void transpose_smat(inla_cgeneric_smat_tp * A);
 

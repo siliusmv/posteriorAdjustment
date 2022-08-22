@@ -53,8 +53,7 @@ inla_cgeneric_smat_tp spde_precision(double log_rho,
   inla_cgeneric_smat_tp tmp = copy_smat(M[1]);
 
   // Compute Q = D1 * M0 * D1 in place
-  smat_diag_mult(&Q, &D1);
-  diag_smat_mult(&Q, &D1);
+  diag_smat_diag_mult(&Q, &D1);
 
   // Compute tmp = D12 * M1 in place
   diag_smat_mult(&tmp, &D12);
@@ -70,8 +69,7 @@ inla_cgeneric_smat_tp spde_precision(double log_rho,
   smat_smat_add_in_place(&Q, M[2]);
 
   // Set Q = D0 * Q * D0
-  diag_smat_mult(&Q, &D0);
-  smat_diag_mult(&Q, &D0);
+  diag_smat_diag_mult(&Q, &D0);
 
   // Free up the allocated memory to avoid memory leaks
   free(phi0);

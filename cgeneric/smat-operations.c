@@ -134,6 +134,15 @@ void smat_diag_mult(inla_cgeneric_smat_tp * A, diag_mat_tp const * D) {
   }
 }
 
+void diag_smat_diag_mult(inla_cgeneric_smat_tp * A, diag_mat_tp const * D) {
+  assert(D->dim == A->ncol);
+  assert(D->dim == A->nrow);
+  for (int i = 0; i < A->n; i++) {
+    A->x[i] *= (D->x[A->j[i]] * D->x[A->i[i]]);
+  }
+}
+
+
 void transpose_smat(inla_cgeneric_smat_tp * A) {
   int * tmp_pnt = A->i;
   A->i = A->j;

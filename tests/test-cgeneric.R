@@ -56,12 +56,12 @@ for (i in 0:2) {
   save_smat(spde$param.inla[[paste0("M", i)]], filename)
 }
 
-
 # ============================================================
 # Compute Q using c and using inla.spde2.precision(), and
 # compare the results
 # ============================================================
 
+# Function for calling an executable from cgeneric_dir()
 execute_c_script = function(name, ...) {
   current_path = getwd()
   on.exit(setwd(current_path))
@@ -69,22 +69,33 @@ execute_c_script = function(name, ...) {
   execute_shell_script(name, ...)
 }
 
+# Compare R and C by computing and printing the precision matrix
+# of the SPDE with parameters log_rho and log_sigma.
 compare_r_and_c = function(log_rho, log_sigma) {
   Q = inla.spde2.precision(spde, c(log_rho, log_sigma))
   execute_c_script("./test1.o", c(log_rho, log_sigma))
   round(as.matrix(Q), digits = 6)
 }
 
+# Further test the implemented c functions for extracting the upper diagonal
+# part of a matrix, sorting the elements of a sparse matrix,
+# and creating a diagonal block matrix with the same matrix replicated multiple times
 test_c_further = function(log_rho, log_sigma) {
   execute_c_script("./test2.o", c(log_rho, log_sigma))
 }
 
+# Compile and link all the necessary code
 make_cgeneric("test")
 
+# Draw some random values for log_rho and log_sigma
 log_rho = runif(1, 0, 2)
 log_sigma = runif(1, 0, 2)
+
+# Compare R and C
 compare_r_and_c(log_rho, log_sigma)
 
+# Test C further
 test_c_further(log_rho, log_sigma)
 
-unlink(path)
+# Remove the directory that contains textfiles of the matrices of the SPDE
+unlink(path, recursive = TRUE)

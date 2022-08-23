@@ -18,9 +18,7 @@ r = 5 # Radius used for computing aggregated empirical distribution functions
 # ==============================================================================
 radar = readRDS(file.path(downloads_dir(), "radar.rds"))
 coords = st_coordinates(radar$coords)
-data = radar$data
 n_loc = nrow(coords)
-rm(radar)
 
 # ==============================================================================
 # Transform the data to Laplace margins
@@ -30,8 +28,8 @@ transformed_data = pbapply::pblapply(
   X = 1:n_loc,
   cl = cl,
   FUN = function(i) {
-    F = aggregated_ecdf(data, coords, coords[i, ], radius = r)
-    u = F(data[, i])
+    F = aggregated_ecdf(radar$data, coords, coords[i, ], radius = r)
+    u = F(radar$data[, i])
     # Ensure that we don't get infinities
     if (any(u == 1, na.rm = TRUE)) {
       u[which(u == 1)] = (1 + max(u[which(u != 1)])) / 2
@@ -171,13 +169,16 @@ plot = do.call(rbind, pars) |>
         strip.background = element_rect(colour = "#f0f0f0", fill = "#f0f0f0")) +
   labs(x = "Distance [km]", y = "Value")
 
+# Export the plot to pdf format
 tikz_plot(file.path(image_dir(), "model-selection1.pdf"),
           plot, width = 7, height = 7)
 
 # =====================================================================
-# Estimate alpha and zeta
+# Estimate α(d) and ζ(d)
 # =====================================================================
 
+# Extract all observations from when a threshold exceedance is observed,
+# using every single location as a possible conditioning site
 data = extract_extreme_fields(
   data = transformed_data,
   coords = coords,
@@ -186,44 +187,50 @@ data = extract_extreme_fields(
   n = 1,
   r = Inf)
 
+# Create functions for computing a(y0, d) = α(d) * y0, and ζ(d)
 get_a_func = function(theta) {
-  warning("change this to alpha_func")
-  λ = exp(theta[1]); κ = exp(theta[2])
-  function(y, dist) {
+  λ = exp(theta[1])
+  κ = exp(theta[2])
+  function(y0, dist) {
     alpha = exp(- (dist / λ)^κ)
-    matrix(rep(y, each = length(alpha)) * rep(alpha, length(y)),
+    matrix(rep(y0, each = length(alpha)) * rep(alpha, length(y0)),
            nrow = length(dist),
-           ncol = length(y))
+           ncol = length(y0))
   }
 }
-
 get_zeta_func = function(theta) {
   zeta0 = exp(theta[1])
   rho = exp(theta[2])
-  function(dist, n) {
+  function(y0, dist) {
+    n = length(y0)
     zeta = sqrt(1 - exp(-2 * dist / rho)) * zeta0
     matrix(rep(zeta, n), nrow = length(dist), ncol = n)
   }
 }
 
-loglik = function(theta, data) {
+# Create a function for computing the log-likelihood of the conditional extremes
+# model, when Z is iid Gaussian white noise, meaning that all observations are
+# independent, and Z_b is nonstationary Gaussian white noise
+loglik_iid = function(theta, data) {
   a_func = get_a_func(theta[1:2])
   zeta_func = get_zeta_func(theta[3:4])
   res = 0
   for (i in seq_along(data$y)) {
     a = a_func(data$y0[[i]], data$dist_to_s0[[i]])
-    zeta = zeta_func(data$dist_to_s0[[i]], length(data$y0[[i]]))
+    zeta = zeta_func(data$y0[[i]], data$dist_to_s0[[i]])
     res = res + sum(dnorm(data$y[[i]], a, zeta, log = TRUE), na.rm = TRUE)
   }
   res
 }
 
+# Compute the maximum likelihood estimators for the parameters of α(d) and ζ(d)
 res = optim(
   par = c(log(50), log(1), log(1), log(20)),
-  fn = loglik,
+  fn = loglik_iid,
   control = list(fnscale = -1, trace = 6),
   data = data)
 
+# Compute the maximum likelihood estimators of a(y0, d) and ζ(d)
 a_func = get_a_func(res$par[1:2])
 zeta_func = get_zeta_func(res$par[3:4])
 
@@ -251,7 +258,7 @@ pars2 = pbapply::pblapply(
     # Compute the values of alpha and zeta
     dist = as.numeric(dist(coords[loc_index, 1:2]))
     alpha = as.numeric(a_func(1, dist))
-    zeta = as.numeric(zeta_func(dist, 1))
+    zeta = as.numeric(zeta_func(1, dist))
 
     # Fit the different model where we fix alpha and zeta
     p1 = optim(
@@ -296,6 +303,11 @@ pars2 = pbapply::pblapply(
   })
 parallel::stopCluster(cl)
 
+# ==============================================================================
+# Plot the results
+# ==============================================================================
+
+# Examine the pairwise estimates of β and γ with α(d) and ζ(d) fixed
 do.call(rbind, pars2) |>
   dplyr::mutate(
     model = paste("Model", model),
@@ -313,7 +325,7 @@ do.call(rbind, pars2) |>
         strip.background = element_rect(colour = "#f0f0f0", fill = "#f0f0f0")) +
   labs(x = "Distance [km]", y = "Value")
 
-
+# Plot the estimates of α(d) and ζ(d) together with their pairwise estimates
 xx = seq(0, max(sapply(pars, `[[`, "dist")), length.out = 1000)
 plot1 = do.call(rbind, pars) |>
   dplyr::filter(model == 1) |>
@@ -326,7 +338,7 @@ plot1 = do.call(rbind, pars) |>
   facet_wrap(~par, scales = "free", nrow = 1) +
   geom_line(data = data.frame(x = xx, y = a_func(1, xx), par = "$\\alpha$"),
             aes(x = x, y = y), col = "blue", size = 2) +
-  geom_line(data = data.frame(x = xx, y = zeta_func(xx, 1), par = "$\\zeta$"),
+  geom_line(data = data.frame(x = xx, y = zeta_func(1, xx), par = "$\\zeta$"),
             aes(x = x, y = y), col = "blue", size = 2) +
   theme_light() +
   theme(text = element_text(size = 15)) +
@@ -334,6 +346,7 @@ plot1 = do.call(rbind, pars) |>
         strip.background = element_rect(colour = "#f0f0f0", fill = "#f0f0f0")) +
   labs(x = "Distance [km]", y = "Value")
 
+# Plot the joint pairwise estimates for β and γ with α(d) and ζ(d) fixed
 plot2 = do.call(rbind, pars2) |>
   dplyr::mutate(model == 3) |>
   dplyr::mutate(par = factor(
@@ -349,24 +362,38 @@ plot2 = do.call(rbind, pars2) |>
         strip.background = element_rect(colour = "#f0f0f0", fill = "#f0f0f0")) +
   labs(x = "Distance [km]", y = "Value")
 
+# Combine the two plots into one
 plot = patchwork::wrap_plots(plot1, plot2, nrow = 1)
 
+# Export the plot to pdf format
 tikz_plot(file.path(image_dir(), "model-selection2.pdf"),
           plot, width = 10, height = 5)
 
+# ==================================================================
+# Compute residuals and examine summary statistics for the residuals
+# ==================================================================
 
 residuals = list()
 for (i in seq_along(data$y)) {
   a = a_func(data$y0[[i]], data$dist_to_s0[[i]])
-  zeta = zeta_func(data$dist_to_s0[[i]], data$n[i])
+  zeta = zeta_func(data$y0[[i]], data$dist_to_s0[[i]])
   residuals[[i]] = as.numeric((data$y[[i]] - a) / zeta)
 }
 residuals = unlist(residuals)
 mean(residuals, na.rm = TRUE)
 var(residuals, na.rm = TRUE)
 
-#library(magick)
-#image = magick::image_read_pdf(file.path(image_dir(), "model-selection1.pdf"))
-#magick::image_write(image, file.path(image_dir(), "model-selection1.jpg"), format = "jpg", quality = 50)
-#image = magick::image_read_pdf(file.path(image_dir(), "model-selection2.pdf"))
-#magick::image_write(image, file.path(image_dir(), "model-selection2.jpg"), format = "jpg", quality = 50)
+# # Convert the "heavy" pdf files to "lighter" compressed jpeg files
+# library(magick)
+# image = magick::image_read_pdf(file.path(image_dir(), "model-selection1.pdf"))
+# magick::image_write(
+#   image = image,
+#   path = file.path(image_dir(), "model-selection1.jpg"),
+#   format = "jpg",
+#   quality = 50)
+# image = magick::image_read_pdf(file.path(image_dir(), "model-selection2.pdf"))
+# magick::image_write(
+#   image = image,
+#   path = file.path(image_dir(), "model-selection2.jpg"),
+#   format = "jpg",
+#   quality = 50)

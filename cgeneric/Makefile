@@ -2,7 +2,7 @@ GCC = gcc-12
 
 .PHONY: test clean all
 
-all: a.so b.so test
+all: a.so b.so
 
 a.so: a.c cgeneric.h
 	$(GCC) -Wall -fpic -O -c -o a.o a.c -lm

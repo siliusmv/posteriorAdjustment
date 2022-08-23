@@ -3,7 +3,7 @@ library(INLA)
 library(Matrix)
 
 # Compile and link all the cgeneric scripts, if this has not already been done
-make_cgeneric("all")
+make_cgeneric("test")
 
 # Create a small grid of locations
 loc = as.matrix(expand.grid(x = 1:3, y = 1:2))

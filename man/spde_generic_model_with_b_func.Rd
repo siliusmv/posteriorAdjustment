@@ -2,7 +2,7 @@
 % Please edit documentation in R/inla-generic-models.R
 \name{spde_generic_model_with_b_func}
 \alias{spde_generic_model_with_b_func}
-\title{Function for defininc a cgeneric model for Z_b.}
+\title{Function for defining a cgeneric model for Z_b.}
 \usage{
 spde_generic_model_with_b_func(
   spde,

@@ -13,7 +13,7 @@
 #'   with names "lambda" and "kappa". The two elements are vectors of length 2 or 3.
 #'   If the first element of a vector is 0, then we will not estimate that parameter,
 #'   but we will fix it equal to the value given in the second element of the vector.
-#'   If the first element is not 0, then the logarithm of the parameter is given a
+#'   If the first element is not 0, then the parameter is given a
 #'   Gaussian prior with mean equal to the second element of the vector, and standard
 #'   deviation equal to the third element of the vector. If e.g.
 #'   priors = list(lambda = c(0, 4), kappa = c(1, 1, 3)), then we fix log(λ) = 4,
@@ -59,7 +59,7 @@ a_generic_model = function(y0,
   do.call(INLA::inla.cgeneric.define, args)
 }
 
-#' Function for defininc a cgeneric model for Z_b.
+#' Function for defining a cgeneric model for Z_b.
 #'
 #' The input variables are:
 #' spde: An inla.spde2 object that contains the matrices M0, M1, M2, B0, B1 and B2,
@@ -138,7 +138,26 @@ spde_generic_model_with_b_func = function(spde,
   do.call(INLA::inla.cgeneric.define, args)
 }
 
-
+#' Function for defining a cgeneric model for Z_b, when Z is Gaussian white noise,
+#' not created using the SPDE approximation.
+#'
+#' The input variables are:
+#' init: Initial values for the subset of (log(σ), log(ρ_b)) that will be
+#'   estimated. See the documentation for the prior variable for more information.
+#' priors: Priors for the two parameters of Z_b. This is a list of length 2,
+#'   with names "sigma" and "rho_b". The two list elements are vectors of
+#'   length 2 or 3. If the first element of a vector is 0, then we will not estimate
+#'   that parameter, but we will fix it equal to the value given in the second element
+#'   of the vector. If the first element is not 0, then the parameter is given a
+#'   Gaussian prior with mean equal to the second element of the vector, and standard
+#'   deviation equal to the third element of the vector. If e.g.
+#'   priors = list(sigma = c(0, 2), rho_b = c(1, 1, 3)), then we fix log(σ) = 2,
+#'   while we estimate log(rho_b) and give it the prior log(ρ_b) ~ N(1, 3).
+#' dist_to_s0: A vector of length equal to the vector y_inla, which is used as input
+#'   to R-INLA. Element nr. i of dist_to_s0 contains the distance from the location
+#'   where y_inla[i] was observed, to the conditioning site we are basing inference
+#'   on for the observation y_inla[i].
+#' debug: A boolean stating if R-INLA should print debug information or not.
 #' @export
 iid_generic_model_with_b_func = function(init,
                                          priors,
@@ -146,17 +165,32 @@ iid_generic_model_with_b_func = function(init,
                                          debug = FALSE) {
   stopifnot(all(c("sigma", "rho_b") %in% names(priors)))
   stopifnot(length(priors) == 2)
-  n_fixed = sum(sapply(priors, `[`, 1) == 0)
-  stopifnot(length(init) == 2 - n_fixed)
-  for (i in seq_along(priors)) if (priors[[i]][1] != 0) stopifnot(length(priors[[i]]) == 3)
   args = list(debug = debug)
+
+  # The name and location of the required c-function for defining the cgeneric model
   args$model = "inla_cgeneric_iid_model_with_b_func"
   args$shlib = file.path(cgeneric_dir(), "b.so")
+
+  # Check that the priors have the correct lengths
+  for (i in seq_along(priors)) {
+    if (priors[[i]][1] == 0) {
+      stopifnot(length(priors[[i]]) == 2)
+    } else {
+      stopifnot(length(priors[[i]]) == 3)
+    }
+  }
+
+  # Check that the init vector has the correct length
+  n_fixed = sum(sapply(priors, `[`, 1) == 0)
+  stopifnot(length(init) == 2 - n_fixed)
+
+  # Put all the arguments into args in the order defined in the c-function
   args$n = length(dist_to_s0)
-  func = INLA::inla.cgeneric.define
   args$dist_to_s0 = dist_to_s0
   args$init = init
   args$sigma_prior = priors$sigma
   args$rho_b_prior = priors$rho_b
-  do.call(func, args)
+
+  # Define the model
+  do.call(INLA::inla.cgeneric.define, args)
 }

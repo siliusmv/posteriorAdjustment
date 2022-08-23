@@ -2,6 +2,9 @@ devtools::load_all()
 library(INLA)
 library(Matrix)
 
+# Compile and link all the cgeneric scripts, if this has not already been done
+make_cgeneric("all")
+
 # Create a small grid of locations
 loc = as.matrix(expand.grid(x = 1:3, y = 1:2))
 
@@ -83,9 +86,6 @@ compare_r_and_c = function(log_rho, log_sigma) {
 test_c_further = function(log_rho, log_sigma) {
   execute_c_script("./test2.o", c(log_rho, log_sigma))
 }
-
-# Compile and link all the necessary code
-make_cgeneric("test")
 
 # Draw some random values for log_rho and log_sigma
 log_rho = runif(1, 0, 2)

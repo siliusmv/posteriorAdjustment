@@ -20,7 +20,7 @@ priors: Priors for the two parameters of a. This is a list of length 2,
 with names "lambda" and "kappa". The two elements are vectors of length 2 or 3.
 If the first element of a vector is 0, then we will not estimate that parameter,
 but we will fix it equal to the value given in the second element of the vector.
-If the first element is not 0, then the logarithm of the parameter is given a
+If the first element is not 0, then the parameter is given a
 Gaussian prior with mean equal to the second element of the vector, and standard
 deviation equal to the third element of the vector. If e.g.
 priors = list(lambda = c(0, 4), kappa = c(1, 1, 3)), then we fix log(λ) = 4,

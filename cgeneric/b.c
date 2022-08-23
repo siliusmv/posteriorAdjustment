@@ -1,7 +1,5 @@
 
 #include <assert.h>
-#if !defined(__FreeBSD__)
-#endif
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +7,6 @@
 #include "cgeneric.h"
 #include "smat-operations.c"
 #include "spde-precision.c"
-
 
 #define Calloc(n_, type_)  (type_ *)calloc((n_), sizeof(type_))
 
@@ -117,7 +114,7 @@ double *inla_cgeneric_spde_model_with_b_func(inla_cgeneric_cmd_tp cmd,
     {
       // return a vector of indices with format
       // c(n, M, ii, jj)
-      // where ii<=jj and both ii and jj are non-decreasing
+      // where ii<=jj, ii is non-decreasing and jj is non-decreasing within each ii,
       // and M is the length of ii
 
       // Here we just compute the precision matrix, in order to find the graph structure
@@ -279,15 +276,21 @@ double *inla_cgeneric_iid_model_with_b_func(inla_cgeneric_cmd_tp cmd,
   // provide an SPDE approximation, and that the precision matrix is diagonal.
   double *ret = NULL;
 
+  // ==========================================================
+  // Assert that all the input variables look as they shold
+  // ==========================================================
+
   // Number of observations
   assert(!strcasecmp(data->ints[0]->name, "n"));
   int n = data->ints[0]->ints[0];
   assert(n > 0);
 
+  // Distances to s0
   assert(!strcasecmp(data->doubles[0]->name, "dist_to_s0"));
   assert(data->doubles[0]->len == n);
   double *dist = data->doubles[0]->doubles;
 
+  // Initial values and priors
   assert(!strcasecmp(data->doubles[1]->name, "init"));
   double *init = data->doubles[1]->doubles;
   int n_theta = data->doubles[1]->len;
@@ -296,6 +299,10 @@ double *inla_cgeneric_iid_model_with_b_func(inla_cgeneric_cmd_tp cmd,
   assert(!strcasecmp(data->doubles[3]->name, "rho_b_prior"));
   double *rho_b_prior = data->doubles[3]->doubles;
 
+  // ==========================================================
+  // Initiate the correct parameter values, depending on whether
+  // the parameters are fixed or estimated.
+  // ==========================================================
   double log_sigma, sigma, log_rho_b, rho_b;
   if (theta) {
     int count_theta = 0;
@@ -318,6 +325,10 @@ double *inla_cgeneric_iid_model_with_b_func(inla_cgeneric_cmd_tp cmd,
     sigma = log_sigma = log_rho_b = rho_b = NAN;
   }
  
+  // ==========================================================
+  // This switch statement is the required method for implementing
+  // cgeneric models in R-INLA
+  // ==========================================================
   switch (cmd) {
   case INLA_CGENERIC_VOID:
     {
@@ -329,8 +340,10 @@ double *inla_cgeneric_iid_model_with_b_func(inla_cgeneric_cmd_tp cmd,
     {
       // return a vector of indices with format
       // c(n, M, ii, jj)
-      // where ii<=jj and both ii and jj are non-decreasing
+      // where ii<=jj, ii is non-decreasing and jj is non-decreasing within each ii,
       // and M is the length of ii
+
+      // The precision matrix is just a diagonal matrix
       ret = Calloc(2 + 2 * n, double);
       ret[0] = n;
       ret[1] = n;
@@ -343,16 +356,26 @@ double *inla_cgeneric_iid_model_with_b_func(inla_cgeneric_cmd_tp cmd,
 
   case INLA_CGENERIC_Q:
     {
+      // optimized format
+      // return c(n, M, Qij) in the same order as defined in INLA_CGENERIC_GRAPH
+      // where M is the length of Qij
+
+      
       ret = Calloc(2 + n, double);
       ret[0] = -1;			       /* code for optimized output */
       ret[1] = n;			       /* number of (i <= j) */
       double tmp;
+      double sigma_squared = sigma * sigma;
+      // The diagonal elements of Q equal 1 / (σ^2 * b^2).
+      // Compute the values of b
       for (int i = 0; i < n; i++) {
+	// Ensure that we don't get numerical problems where b_vals.x[i] becomes INF or NAN
 	tmp = dist[i] / rho_b;
 	if (tmp < 0.0000000001) {
 	  tmp = 0.0000000001;
 	}
-	ret[2 + i] = 1 / (sigma * sigma * (1 - exp(-2 * tmp)));
+	// Compute the diagonal elements of Q
+	ret[2 + i] = 1 / (sigma_squared * (1 - exp(-2 * tmp)));
       }
       break;
     }
@@ -360,6 +383,8 @@ double *inla_cgeneric_iid_model_with_b_func(inla_cgeneric_cmd_tp cmd,
     {
       // return (N, mu)
       // if N==0 then mu is not needed as its taken to be mu[]==0
+
+      // Z_b has zero mean
       ret = Calloc(1, double);
       ret[0] = 0;
       break;
@@ -369,9 +394,11 @@ double *inla_cgeneric_iid_model_with_b_func(inla_cgeneric_cmd_tp cmd,
     {
       // return c(M, initials)
       // where M is the number of hyperparameters
+
+      // The initial values depend on how many parameters that are fixed or estimated.
       ret = Calloc(n_theta + 1, double);
       ret[0] = n_theta;
-      for (int i = 0; i < n_theta; i++) {
+      for (int i = 0; i < n_theta; ++i) {
 	ret[i + 1] = init[i];
       }
       break;
@@ -380,6 +407,8 @@ double *inla_cgeneric_iid_model_with_b_func(inla_cgeneric_cmd_tp cmd,
   case INLA_CGENERIC_LOG_NORM_CONST:
     {
       // return c(NORM_CONST) or a NULL-pointer if INLA should compute it by itself
+
+      // We don't bother computing this
       ret = NULL;
       break;
     }
@@ -389,12 +418,18 @@ double *inla_cgeneric_iid_model_with_b_func(inla_cgeneric_cmd_tp cmd,
       // return c(LOG_PRIOR)
       ret = Calloc(1, double);
       ret[0] = 0;
+
+      // This is an approximation for -0.5 * log(2π)
       double gaussian_const = -0.91893853320467;
+
+      // Only add terms for the parameters that are not fixed
       if (sigma_prior[0] != 0) {
-	ret[0] += gaussian_const - log(sigma_prior[2]) - pow(log_sigma - sigma_prior[1], 2) / (2 * pow(sigma_prior[2], 2));
+	ret[0] += gaussian_const - log(sigma_prior[2]) -
+	  pow(log_sigma - sigma_prior[1], 2) / (2 * pow(sigma_prior[2], 2));
       } 
       if (rho_b_prior[0] != 0) {
-	ret[0] += gaussian_const - log(rho_b_prior[2]) - pow(log_rho_b - rho_b_prior[1], 2) / (2 * pow(rho_b_prior[2], 2));
+	ret[0] += gaussian_const - log(rho_b_prior[2]) -
+	  pow(log_rho_b - rho_b_prior[1], 2) / (2 * pow(rho_b_prior[2], 2));
       } 
       break;
     }

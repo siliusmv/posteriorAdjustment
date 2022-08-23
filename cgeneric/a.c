@@ -1,7 +1,5 @@
 
 #include <assert.h>
-#if !defined(__FreeBSD__)
-#endif
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -81,7 +79,7 @@ double *inla_cgeneric_a_model(inla_cgeneric_cmd_tp cmd,
     {
       // return a vector of indices with format
       // c(n, M, ii, jj)
-      // where ii<=jj and both ii and jj are non-decreasing
+      // where ii<=jj, ii is non-decreasing and jj is non-decreasing within each ii,
       // and M is the length of ii
 
       // The precision matrix is just a diagonal matrix with each element equal to high_prec

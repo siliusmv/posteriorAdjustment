@@ -7,19 +7,13 @@ library(dplyr)
 library(Matrix)
 library(sf)
 
-INLA::inla.setOption(pardiso.license = "~/.R/licences/pardiso.lic")
+# Compile and link all the cgeneric scripts, if this has not already been done
+make_cgeneric("all")
 
 filename = file.path(tmp_dir(), "conditional-adjustment.rds")
-overwrite = FALSE
-if (!file.exists(filename)) saveRDS(list(), filename)
-
-if (FALSE) {
-  tmp = readRDS(filename)
-  for (name in names(tmp)) assign(name, tmp[[name]])
-}
 
 real_data_filename = file.path(tmp_dir(), "conditional-modelling.rds")
-ρ2_filename = file.path(tmp_dir(), "model-selection.rds")
+rho_b_filename = file.path(tmp_dir(), "model-selection.rds")
 truth_filename = file.path(tmp_dir(), "conditional-simulation-truth.rds")
 
 # ==============================================================================
@@ -48,83 +42,127 @@ A = inla.spde.make.A(mesh, coords)
 
 tmp = readRDS(real_data_filename)
 ss = tmp$fit[[1]]$summary.hyperpar
-τ = ss[1, 1]
-ρ = exp(ss[2, 1])
-σ = exp(ss[3, 1])
-ρ2 = exp(ss[4, 1])
-λ = exp(ss[5, 1])
-κ = exp(ss[6, 1])
+tau = ss[1, 1]
+rho = exp(ss[2, 1])
+sigma = exp(ss[3, 1])
+rho_b = exp(ss[4, 1])
+lambda = exp(ss[5, 1])
+kappa = exp(ss[6, 1])
 rm(tmp)
 
-tmp = readRDS(ρ2_filename)
-ρ2 = exp(tmp$pars$value[which(tmp$pars$name == "log_ρ2")])
+tmp = readRDS(rho_b_filename)
+rho_b = exp(tmp$pars$value[which(tmp$pars$name == "log_rho_b")])
 rm(tmp)
 
 info = list(
-  τ = c(4, 1, 5e-5),
-  ρ = c(20, 60, .95),
-  σ = c(1, 5, .05),
-  ρ2 = c(log(6), log(6), 2),
-  λ = c(4, 3, 3),
-  κ = c(-.4, -.4, 3))
+  tau = c(4, 1, 5e-5),
+  rho = c(20, 60, .95),
+  sigma = c(1, 5, .05),
+  rho_b = c(log(6), log(6), 2),
+  lambda = c(4, 3, 3),
+  kappa = c(-.4, -.4, 3))
 
 n_sim = 100
 n_cores = 15
 threshold = qlaplace(.999)
 
-θ_a = log(c(λ, κ))
-θ_b = log(c(ρ2))
-θ_Σ = log(c(ρ, σ))
-θ = c(θ_a, θ_b, θ_Σ, log(τ))
+theta_a = log(c(lambda, kappa))
+theta_b = log(c(rho_b))
+theta_sigma = log(c(rho, sigma))
+theta = c(theta_a, theta_b, theta_sigma, log(tau))
 
-get_a_func = function(θ) {
-  λ = exp(θ[1]); κ = exp(θ[2])
+get_a_func = function(theta) {
+  lambda = exp(theta[1]); kappa = exp(theta[2])
   function(y, dist) {
-    α = exp(- (dist / λ)^κ)
-    matrix(rep(y, each = length(α)) * rep(α, length(y)),
+    alpha = exp(- (dist / lambda)^kappa)
+    matrix(rep(y, each = length(alpha)) * rep(α, length(y)),
            nrow = length(dist),
            ncol = length(y))
   }
 }
-get_b_func = function(θ) {
-  ρ = exp(θ)
+get_b_func = function(theta) {
+  rho = exp(theta)
   function(y, dist) {
-    tmp = dist / ρ
+    tmp = dist / rho
     tmp[tmp < 1e-9] = 1e-9
     b = sqrt(1 - exp(-2 * tmp))
     matrix(rep(b, length(y)), nrow = length(dist), ncol = length(y))
   }
 }
 
-a = get_a_func(θ_a)
-b = get_b_func(θ_b)
-Σ = get_Σ_func(θ_Σ, spde)
+a = get_a_func(theta_a)
+b = get_b_func(theta_b)
+Q = inla.spde2.precision(spde, c(log(rho), log(sigma)))
 
 A = inla.spde.make.A(mesh, coords)
 
-ll = function(θ, sum_terms = TRUE, verbose = FALSE, ρ2 = NULL, ...) {
-  if (!is.null(ρ2)) {
-    b_func = get_b_func(log(ρ2))
-    Σ_func = get_Σ_func(θ[3:4], spde)$value
-    τ = exp(θ[5])
+# First, define the composite log-likelihood for the global conditional
+# extremes model. This is necessary for computing the MLE, but also for
+# estimating J(θ*) later in the code. The function below is a wrapper
+# for the function loglik_conditional
+#
+# Input variables:
+# theta: A vector of parameters of length 5 or 6, depending on the value of rho_b.
+# y, y0, dist_to_s0, dist_to_s0_from_mesh, A, n_cores: See ?loglik_conditional for more info
+# rho_b: Either NULL or a double. If is.null(rho_b), then theta has length 6, and
+#   we try to estimate rho_b. Else, theta has length 5, and rho_b is fixed and equal
+#   to the given value.
+# sum_terms: A boolean describing wheter we should compute the sum of the log-likelihood,
+#   or if we should remove one value for each threshold exceedance.
+loglik = function(theta,
+                  y,
+                  y0,
+                  dist_to_s0,
+                  dist_to_s0_from_mesh,
+                  A,
+                  rho_b = NULL,
+                  sum_terms = TRUE,
+                  n_cores = 1) {
+  if (is.null(rho_b)) {
+    stopifnot(length(theta) == 6)
+    rho_b = exp(theta[3])
+    log_rho = theta[4]
+    log_sigma = theta[5]
+    tau = exp(theta[6])
   } else {
-    b_func = get_b_func(θ[3])
-    Σ_func = get_Σ_func(θ[4:5], spde)$value
-    τ = exp(θ[6])
+    stopifnot(length(theta) == 5)
+    log_rho = theta[3]
+    log_sigma = theta[4]
+    tau = exp(theta[5])
   }
-  res = ll_conditional(
-    a_func = get_a_func(θ[1:2]),
+  lambda = exp(theta[1])
+  kappa = exp(theta[2])
+  Q = INLA::inla.spde2.precision(spde, c(log_rho, log_sigma))
+  cov_mat = as.matrix(Matrix::solve(Q))
+  a_func = function(y, dist) {
+    alpha = exp(- (dist / lambda)^kappa)
+    matrix(rep(y, each = length(alpha)) * rep(alpha, length(y)),
+           nrow = length(dist), ncol = length(y))
+  }
+  b_func = function(y, dist) {
+    tmp = dist / rho_b
+    tmp[tmp < 1e-9] = 1e-9
+    b = sqrt(1 - exp(-2 * tmp))
+    matrix(rep(b, length(y)), nrow = length(dist), ncol = length(y))
+  }
+
+  res = loglik_conditional(
+    y = y,
+    y0 = y0,
+    a_func = a_func,
     b_func = b_func,
-    Σ_func = Σ_func,
-    no_beta = TRUE,
-    τ = τ,
-    ...)
+    sigma = cov_mat,
+    tau = tau,
+    dist_to_s0 = dist_to_s0,
+    dist_to_s0_from_mesh = dist_to_s0_from_mesh,
+    A = A,
+    n_cores = n_cores)
   if (sum_terms) res = sum(res)
-  if (verbose) message("Done")
   res
 }
-ll_grad = function(θ, sum_terms = TRUE, ...) {
-  res = numDeriv::jacobian(ll, θ, ..., sum_terms = FALSE)
+ll_grad = function(theta, sum_terms = TRUE, ...) {
+  stop("change this one also!!!")
+  res = numDeriv::jacobian(ll, theta, ..., sum_terms = FALSE)
   if (sum_terms) res = apply(res, 2, sum)
   res
 }
@@ -137,8 +175,8 @@ obs = keef_sampling(
   n = 5e4,
   a_func = a,
   b_func = b,
-  Q = Σ$Q,
-  τ = τ,
+  Q = SIGMA$Q,
+  tau = tau,
   threshold = threshold,
   dist_to_s0 = dist_to_s0,
   dist_to_s0_from_mesh = dist_to_s0_from_mesh,
@@ -177,7 +215,7 @@ for (i in seq_along(data$s0)) {
   data$dist_to_s0_from_mesh[[i]] = dist_euclid(mesh$loc[, 1:2], data$s0[[i]])
 }
 
-est = list(par = θ, convergence = 1)
+est = list(par = theta, convergence = 1)
 while (est$convergence != 0) {
   est = optim(
     par = est$par,
@@ -185,10 +223,10 @@ while (est$convergence != 0) {
     y = data$y,
     y0 = data$y0,
     dist = data$dist_to_s0,
-    #ρ2 = ρ2,
+    #rho_b = rho_b,
     dist_from_mesh = data$dist_to_s0_from_mesh,
     A = lapply(data$loc_index, function(x) A[x, ]),
-    num_cores = n_cores,
+    n_cores = n_cores,
     control = list(fnscale = -1, maxit = 300, trace = 6, REPORT = 1))
 }
 
@@ -206,8 +244,8 @@ for (i in 1:num_samples) {
     n = n1,
     a_func = a,
     b_func = b,
-    Q = Σ$Q,
-    τ = τ,
+    Q = SIGMA$Q,
+    tau = tau,
     threshold = threshold,
     dist_to_s0 = dist_to_s0,
     dist_to_s0_from_mesh = dist_to_s0_from_mesh,
@@ -230,23 +268,23 @@ for (i in 1:num_samples) {
   y0_inla = rep(unlist(data$y0), sapply(dist_to_s0_inla, length))
   dist_to_s0_inla = unlist(dist_to_s0_inla)
 
-  alpha_priors = list(lambda = c(1, info$λ[-1]), kappa = c(1, info$κ[-1]))
-  alpha_model = alpha_generic_model(
+  a_priors = list(lambda = c(1, info$lambda[-1]), kappa = c(1, info$kappa[-1]))
+  a_model = a_generic_model(
     y0 = y0_inla,
     dist_to_s0 = dist_to_s0_inla,
-    init = c(info$λ[1], info$κ[1]),
-    priors = alpha_priors)
+    init = c(info$lambda[1], info$kappa[1]),
+    priors = a_priors)
 
   spde_priors = list(
-    rho = c(1, info$ρ[-1]),
-    sigma = c(1, info$σ[-1]),
-    rho_2 = c(1, info$ρ2[-1]))
-    #rho_2 = c(0, log(ρ2)))
+    rho = c(1, info$rho[-1]),
+    sigma = c(1, info$sigma[-1]),
+    rho_b = c(1, info$rho_b[-1]))
+    #rho_b = c(0, log(rho_b)))
   spde_model = spde_generic_model_with_b_func(
     spde = spde,
     n = data$n,
-    init = c(log(info$ρ[1]), log(info$σ[1]), log(info$ρ2[1])),
-    #init = c(log(info$ρ[1]), log(info$σ[1])),
+    init = c(log(info$rho[1]), log(info$sigma[1]), log(info$rho_b[1])),
+    #init = c(log(info$rho[1]), log(info$sigma[1])),
     priors = spde_priors,
     dist_to_s0 = do.call(rbind, data$dist_to_s0_from_mesh))
 
@@ -273,17 +311,17 @@ for (i in 1:num_samples) {
 
   formula = y ~ -1 +
     f(spatial, model = spde_model) +
-    f(idx, model = alpha_model)
+    f(idx, model = a_model)
 
   est = optim(
-    par = θ,
+    par = theta,
     fn = ll,
     y = data$y,
     y0 = data$y0,
     dist = data$dist_to_s0,
     dist_from_mesh = data$dist_to_s0_from_mesh,
     A = lapply(data$loc_index, function(x) A[x, ]),
-    num_cores = n_cores,
+    n_cores = n_cores,
     control = list(fnscale = -1, maxit = 120))
 
   fit = tryCatch({
@@ -295,31 +333,31 @@ for (i in 1:num_samples) {
     #control.mode = list(theta = est$par[c(5, 3:4, 1:2)], restart = TRUE),
     control.mode = list(theta = est$par[c(6, 4:5, 3, 1:2)], restart = TRUE),
     control.inla = list(control.vb = list(enable = FALSE)),
-    control.family = list(hyper = list(prec = list(param = info$τ[2:3]))),
+    control.family = list(hyper = list(prec = list(param = info$tau[2:3]))),
     #verbose = TRUE,
     num.threads = n_cores,
     inla.mode = "experimental")
   }, error = function(e) NULL)
   if (is.null(fit)) next
 
-  θ_reordering = c(5, 6, 4, 2, 3, 1)
-  #θ_reordering = c(4, 5, 2, 3, 1)
+  theta_reordering = c(5, 6, 4, 2, 3, 1)
+  #theta_reordering = c(4, 5, 2, 3, 1)
 
   H = tryCatch(solve(fit$misc$cov.intern), error = \(e) NULL)
   if (is.null(H)) {
     warning("Inverting cov.intern failed for i = ", i)
     next
   }
-  H = H[θ_reordering, θ_reordering]
+  H = H[theta_reordering, theta_reordering]
 
   grads = ll_grad(
-    θ = fit$mode$theta[θ_reordering],
+    theta = fit$mode$theta[theta_reordering],
     y = data$y,
     y0 = data$y0,
     dist = data$dist_to_s0,
     dist_from_mesh = data$dist_to_s0_from_mesh,
     A = lapply(data$loc_index, function(x) A[x, ]),
-    num_cores = n_cores,
+    n_cores = n_cores,
     sum_terms = FALSE)
 
   times = unlist(data$time_index)
@@ -333,12 +371,12 @@ for (i in 1:num_samples) {
   }
 
   # C = get_C(H, J)
-  # θ_uncorrected = inla.hyperpar.sample(1e4, fit, intern = TRUE)
-  # θ_uncorrected = θ_uncorrected[, θ_reordering]
-  # θ_corrected = matrix(rep(fit$mode$theta[θ_reordering], each = 1e4), ncol = n_θ)
-  # θ_corrected = θ_corrected + (θ_uncorrected - θ_corrected) %*% t(C)
-  # apply(unname(θ_uncorrected), 2, quantile, probs = c(.025, .975))
-  # apply(θ_corrected, 2, quantile, probs = c(.025, .975))
+  # theta_uncorrected = inla.hyperpar.sample(1e4, fit, intern = TRUE)
+  # theta_uncorrected = theta_uncorrected[, theta_reordering]
+  # theta_corrected = matrix(rep(fit$mode$theta[theta_reordering], each = 1e4), ncol = n_theta)
+  # theta_corrected = theta_corrected + (theta_uncorrected - theta_corrected) %*% t(C)
+  # apply(unname(theta_uncorrected), 2, quantile, probs = c(.025, .975))
+  # apply(theta_corrected, 2, quantile, probs = c(.025, .975))
   # as.numeric(truth)
 
   fit = list(misc = fit$misc, internal.marginals.hyperpar = fit$internal.marginals.hyperpar,
@@ -353,7 +391,7 @@ for (i in 1:num_samples) {
     H = H,
     J = J,
     seed = seed,
-    θ_reordering = θ_reordering,
+    theta_reordering = theta_reordering,
     time_index = data$time_index,
     grads = grads,
     n = sum(data$n))
@@ -368,8 +406,8 @@ pb$terminate()
 
 res = readRDS(filename)
 truth = readRDS(truth_filename)$par
-θ_reordering = res[[1]]$θ_reordering
-n_θ = length(θ_reordering)
+theta_reordering = res[[1]]$theta_reordering
+n_theta = length(theta_reordering)
 
 bad_index = which(sapply(res, length) == 0)
 if (any(bad_index)) res = res[-bad_index]
@@ -378,38 +416,38 @@ for (i in seq_along(res)) {
   res[[i]]$C = get_C(res[[i]]$H, res[[i]]$J)
 }
 
-n_θ_per_res = 1e5
+n_theta_per_res = 1e5
 threshold = 5
 probs = c(.9, .95, .99)
-n_θ = length(θ_reordering)
+n_theta = length(theta_reordering)
 pb = progress_bar(length(res))
 if (length(truth) == 5) {
-  θ_names = c("log_lambda", "log_kappa", "log_rho", "log_sigma", "log_precision")
-  θ_tex_names = paste0("$\\", c("lambda", "kappa", "rho", "sigma", "tau"), "$")
+  theta_names = c("log_lambda", "log_kappa", "log_rho", "log_sigma", "log_precision")
+  theta_tex_names = paste0("$\\", c("lambda", "kappa", "rho", "sigma", "tau"), "$")
 } else {
-  θ_names = c("log_lambda", "log_kappa", "log_rho_2", "log_rho", "log_sigma", "log_precision")
-  θ_tex_names = paste0("$\\", c("lambda", "kappa", "rho_b", "rho", "sigma", "tau"), "$")
+  theta_names = c("log_lambda", "log_kappa", "log_rho_b", "log_rho", "log_sigma", "log_precision")
+  theta_tex_names = paste0("$\\", c("lambda", "kappa", "rho_b", "rho", "sigma", "tau"), "$")
 }
 intervals = list()
 for (i in seq_along(res)) {
-  θ_uncorrected = inla.hyperpar.sample(n_θ_per_res, res[[i]]$fit, intern = TRUE)
-  θ_uncorrected = θ_uncorrected[, θ_reordering]
+  theta_uncorrected = inla.hyperpar.sample(n_theta_per_res, res[[i]]$fit, intern = TRUE)
+  theta_uncorrected = theta_uncorrected[, theta_reordering]
 
   intervals[[i]] = list()
   for (k in 1:2) {
     if (k == 1) {
-      θ_corrected = θ_uncorrected
+      theta_corrected = theta_uncorrected
     } else {
-      θ_corrected = matrix(rep(res[[i]]$fit$mode$theta[θ_reordering], each = n_θ_per_res), ncol = n_θ)
-      θ_corrected = θ_corrected + (θ_uncorrected - θ_corrected) %*% t(res[[i]]$C)
+      theta_corrected = matrix(rep(res[[i]]$fit$mode$theta[theta_reordering], each = n_theta_per_res), ncol = n_theta)
+      theta_corrected = theta_corrected + (theta_uncorrected - theta_corrected) %*% t(res[[i]]$C)
     }
     intervals[[i]][[k]] = rbind(
-      as.data.frame(apply(θ_corrected, 2, quantile, probs = (1 - probs) / 2)) |>
+      as.data.frame(apply(theta_corrected, 2, quantile, probs = (1 - probs) / 2)) |>
         dplyr::mutate(k = k, prob = probs, lim = "lower"),
-      as.data.frame(apply(θ_corrected, 2, quantile, probs = 1 - (1 - probs) / 2)) |>
+      as.data.frame(apply(theta_corrected, 2, quantile, probs = 1 - (1 - probs) / 2)) |>
         dplyr::mutate(k = k, prob = probs, lim = "upper"))
     row.names(intervals[[i]][[k]]) = NULL
-    names(intervals[[i]][[k]])[1:n_θ] = θ_names
+    names(intervals[[i]][[k]])[1:n_theta] = theta_names
   }
   intervals[[i]] = do.call(rbind, intervals[[i]]) |>
     dplyr::mutate(iter = i)
@@ -421,18 +459,18 @@ pb$terminate()
 is_inside_interval = local({
   tmp1 = dplyr::filter(intervals, lim == "lower")
   tmp2 = dplyr::filter(intervals, lim == "upper")
-  for (i in seq_along(θ_names)) {
+  for (i in seq_along(theta_names)) {
     tmp1[[i]] = ifelse(tmp1[[i]] < truth[i], TRUE, FALSE)
     tmp2[[i]] = ifelse(tmp2[[i]] > truth[i], TRUE, FALSE)
   }
-  tmp = (tmp1[, 1:n_θ] & tmp2[, 1:n_θ]) |>
+  tmp = (tmp1[, 1:n_theta] & tmp2[, 1:n_theta]) |>
     as.data.frame() |>
     dplyr::mutate(k = tmp1$k, prob = tmp1$prob, iter = tmp1$iter)
   tmp
 })
 
 is_inside_interval |>
-  tidyr::pivot_longer(all_of(θ_names)) |>
+  tidyr::pivot_longer(all_of(theta_names)) |>
   dplyr::group_by(prob, k, name) |>
   dplyr::summarise(coverage = mean(value)) |>
   #dplyr::mutate(k = paste("k =", k)) |>
@@ -444,11 +482,11 @@ is_inside_interval |>
   print(max = 5000)
 
 tmp = is_inside_interval |>
-  tidyr::pivot_longer(all_of(θ_names)) |>
+  tidyr::pivot_longer(all_of(theta_names)) |>
   dplyr::group_by(prob, k, name) |>
   dplyr::summarise(coverage = mean(value)) |>
   dplyr::mutate(k = factor(k, levels = 1:2, labels = c("Unadjusted", "Adjusted"))) |>
-  dplyr::mutate(name = factor(name, levels = θ_names, labels = θ_tex_names)) |>
+  dplyr::mutate(name = factor(name, levels = theta_names, labels = theta_tex_names)) |>
   tidyr::pivot_wider(names_from = name, values_from = coverage)
 if (length(truth) == 5) {
   tmp = tmp[, c(1, 2, 4, 3, 6, 7, 5)]

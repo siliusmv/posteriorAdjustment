@@ -972,8 +972,8 @@ plot = plot_data |>
   geom_histogram(aes(x = value, y = ..density..), boundary = .5, binwidth = 1) +
   facet_wrap(~name) +
   scale_x_continuous(
-    breaks = seq(1, ncol(tmp), by = 2), expand = c(0, 0),
-    minor_breaks = seq(2, ncol(tmp), by = 2)) +
+    breaks = seq(1, ncol(plot_data), by = 2), expand = c(0, 0),
+    minor_breaks = seq(2, ncol(plot_data), by = 2)) +
   labs(x = "Ranking", y = "Density") +
   theme_light() +
   theme(text = element_text(size = 15)) +

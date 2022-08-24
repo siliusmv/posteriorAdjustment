@@ -377,13 +377,43 @@ residuals = list()
 for (i in seq_along(data$y)) {
   a = a_func(data$y0[[i]], data$dist_to_s0[[i]])
   zeta = zeta_func(data$y0[[i]], data$dist_to_s0[[i]])
-  residuals[[i]] = as.numeric((data$y[[i]] - a) / zeta)
+  residuals[[i]] = (data$y[[i]] - a) / zeta
 }
-residuals = unlist(residuals)
-mean(residuals, na.rm = TRUE)
-var(residuals, na.rm = TRUE)
 
-# # Convert the "heavy" pdf files to "lighter" compressed jpeg files
+# Summary statistics for all the residuals combined
+mean(unlist(residuals), na.rm = TRUE)
+var(unlist(residuals), na.rm = TRUE)
+
+# Sort the residuals by all the unique values of dist_to_s0
+unique_dists = unique(unlist(data$dist_to_s0))
+dist_residuals = lapply(
+  X = seq_along(unique_dists),
+  FUN = function(i) {
+    res = list()
+    for (j in seq_along(data$dist_to_s0)) {
+      index = which(data$dist_to_s0[[j]] == unique_dists[i])
+      if (length(index) > 0) {
+        res[[j]] = as.numeric(residuals[[j]][index, ])
+      }
+    }
+    unlist(res)
+  })
+
+# Summary statistics for the residuals at each unique value of dist_to_s0
+mean_vals = sapply(dist_residuals, mean, na.rm = TRUE)
+var_vals = sapply(dist_residuals, var, na.rm = TRUE)
+
+# Plot the summary statistics
+data.frame(mean = mean_vals, var = var_vals, dist = unique_dists) |>
+  tidyr::pivot_longer(-dist) |>
+  ggplot() +
+  geom_point(aes(x = dist, y = value)) +
+  facet_wrap(~name, scales = "free")
+
+
+# # =======================================================================================
+# # Convert the "heavy" pdf files created in this script to "lighter" compressed jpeg files
+# # =======================================================================================
 # library(magick)
 # image = magick::image_read_pdf(file.path(image_dir(), "model-selection1.pdf"))
 # magick::image_write(

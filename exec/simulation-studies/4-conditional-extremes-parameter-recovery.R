@@ -56,12 +56,16 @@ rm(tmp, ss)
 
 # Create functions for a() and b()
 a_func = function(y0, dist_to_s0, lambda, kappa) {
-  y0 * exp(- (dist_to_s0 / lambda) ^ kappa)
+  alpha = exp(- (dist_to_s0 / lambda)^kappa)
+  matrix(rep(y0, each = length(alpha)) * rep(alpha, length(y0)),
+         nrow = length(dist_to_s0),
+         ncol = length(y0))
 }
-b_func = function(dist_to_s0, rho_b) {
+b_func = function(y0, dist_to_s0, rho_b) {
   tmp = dist_to_s0 / rho_b
   tmp[tmp < 1e-9] = 1e-9
-  sqrt(1 - exp(-2 * tmp))
+  b = sqrt(1 - exp(-2 * tmp))
+  matrix(rep(b, length(y0)), nrow = length(dist_to_s0), ncol = length(y0))
 }
 
 # Create the precision matrix of the SPDE approximation
@@ -104,22 +108,11 @@ loglik = function(theta,
   kappa = exp(theta[2])
   Q = INLA::inla.spde2.precision(spde, c(log_rho, log_sigma))
   cov_mat = as.matrix(Matrix::solve(Q))
-  a_func = function(y, dist) {
-    alpha = exp(- (dist / lambda)^kappa)
-    matrix(rep(y, each = length(alpha)) * rep(alpha, length(y)),
-           nrow = length(dist), ncol = length(y))
-  }
-  b_func = function(y, dist) {
-    tmp = dist / rho_b
-    tmp[tmp < 1e-9] = 1e-9
-    b = sqrt(1 - exp(-2 * tmp))
-    matrix(rep(b, length(y)), nrow = length(dist), ncol = length(y))
-  }
   res = loglik_conditional(
     y = y,
     y0 = y0,
-    a_func = a_func,
-    b_func = b_func,
+    a_func = function(...) a_func(..., lambda = lambda, kappa = kappa),
+    b_func = function(...) b_func(..., rho_b = rho_b),
     sigma = cov_mat,
     tau = tau,
     dist_to_s0 = dist_to_s0,
@@ -149,7 +142,7 @@ params = pbapply::pblapply(
     z = rnorm_spde(n = n_train, Q = Q)
     y = as.matrix(A %*% z)
     for (j in seq_along(y0)) {
-      y[, j] = y[, j] * b_func(dist_to_s0, rho_b) +
+      y[, j] = y[, j] * b_func(y0[j], dist_to_s0, rho_b) +
         a_func(y0[j], dist_to_s0, lambda, kappa)
     }
     y = y + rnorm(length(y), sd = tau^-.5)

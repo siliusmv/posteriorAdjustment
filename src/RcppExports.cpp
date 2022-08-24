@@ -11,20 +11,6 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// dmvnorm_arma
-arma::vec dmvnorm_arma(arma::mat const& x, arma::vec const& mean, arma::mat const& sigma, bool const logd);
-RcppExport SEXP _posteriorAdjustment_dmvnorm_arma(SEXP xSEXP, SEXP meanSEXP, SEXP sigmaSEXP, SEXP logdSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat const& >::type x(xSEXP);
-    Rcpp::traits::input_parameter< arma::vec const& >::type mean(meanSEXP);
-    Rcpp::traits::input_parameter< arma::mat const& >::type sigma(sigmaSEXP);
-    Rcpp::traits::input_parameter< bool const >::type logd(logdSEXP);
-    rcpp_result_gen = Rcpp::wrap(dmvnorm_arma(x, mean, sigma, logd));
-    return rcpp_result_gen;
-END_RCPP
-}
 // dconditional_no_beta
 arma::vec dconditional_no_beta(arma::mat const& x, arma::sp_mat const& A, arma::vec const& b, arma::mat const& sigma0, double const nugget, bool const logd, bool const na_rm);
 RcppExport SEXP _posteriorAdjustment_dconditional_no_beta(SEXP xSEXP, SEXP ASEXP, SEXP bSEXP, SEXP sigma0SEXP, SEXP nuggetSEXP, SEXP logdSEXP, SEXP na_rmSEXP) {
@@ -61,7 +47,6 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_posteriorAdjustment_dmvnorm_arma", (DL_FUNC) &_posteriorAdjustment_dmvnorm_arma, 4},
     {"_posteriorAdjustment_dconditional_no_beta", (DL_FUNC) &_posteriorAdjustment_dconditional_no_beta, 7},
     {"_posteriorAdjustment_dconditional", (DL_FUNC) &_posteriorAdjustment_dconditional, 7},
     {NULL, NULL, 0}

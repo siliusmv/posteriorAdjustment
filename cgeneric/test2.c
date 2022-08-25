@@ -26,12 +26,17 @@ int main(int argc, char * argv[]) {
   Q.name = Calloc(1, char);
   strcpy(Q.name, "Q");
 
+  printf("Upper diagonal part of the precision matrix:\n");
   upper_diag(&Q);
   print_smat_as_mat(Q);
 
+  printf("Upper diagonal part of the precision matrix, given in a sparse matrix format\n");
+  printf("where all the elements are sorted such that i is nondecreasing and");
+  printf("j is nondecreasing within each value of i:\n");
   sort_smat(&Q);
   print_smat(Q);
 
+  printf("Block diagonal matrix that contains two copies of the upper diagonal of the precision matrix:\n");
   block_diag_smat(&Q, 2);
   print_smat_as_mat(Q);
 

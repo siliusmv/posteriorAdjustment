@@ -2,7 +2,13 @@ devtools::load_all()
 library(INLA)
 library(Matrix)
 
-# Compile and link all the cgeneric scripts, if this has not already been done
+# In this script we evaluate the correctness of the cgeneric functions used for
+# computing the precision matrix of the SPDE approximation.
+# This is performed by creating a small mesh and an inla.spde2 object using that mesh.
+# The precision matrix of the SPDE approximation is then computed an compared using both the
+# cgeneric functions and using the inla.spde2.precision() function.
+
+# Compile and link all the cgeneric test scripts, if this has not already been done
 make_cgeneric("test")
 
 # Create a small grid of locations
@@ -93,9 +99,12 @@ log_sigma = runif(1, 0, 2)
 
 # Compare R and C
 compare_r_and_c(log_rho, log_sigma)
+# Everything looks good!
 
 # Test C further
 test_c_further(log_rho, log_sigma)
+# Everything looks good!
 
-# Remove the directory that contains textfiles of the matrices of the SPDE
+# Clean up after your self by removing the directory that contains
+# textfiles of the matrices of the SPDE
 unlink(path, recursive = TRUE)

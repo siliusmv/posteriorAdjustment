@@ -49,13 +49,19 @@ transformed_data = do.call(cbind, transformed_data)
 # zeta: if zeta = NULL, we estimate zeta. Else we fix zeta = zeta
 # beta: if beta = NULL, we estimate beta. Else we fix beta = beta
 # gamma: if gamma = NULL, we estimate gamma. Else we fix gamma = gamma
+# lower_lims: a vector of length 4 with lower limits for all the parameters.
+#   This defaults to -Inf for everythng except zeta > 0.
+# upper_lims: a vector of length 4 with upper limits for all the parameters.
+#   This defaults to Inf for all parameters
 loglik_pairwise = function(theta,
                            y,
                            y0,
                            alpha = NULL,
                            zeta = NULL,
                            beta = NULL,
-                           gamma = NULL) {
+                           gamma = NULL,
+                           lower_lims = c(-Inf, 0, -Inf, -Inf),
+                           upper_lims = rep(Inf, 4)) {
   i = 1
   if (is.null(alpha)) {
     alpha = theta[i]
@@ -73,9 +79,14 @@ loglik_pairwise = function(theta,
     gamma = theta[i]
     i = i + 1
   }
-  if (zeta < 0) return(-1e199)
-  if (zeta > 20) return(-1e199)
-  if (beta < -2) return(-1e199)
+
+  # Test if the parameters are inside the upper/lower limits
+  if (any(lower_lims > c(alpha, zeta, beta, gamma)) ||
+        any(upper_lims < c(alpha, zeta, beta, gamma))) {
+    return(-1e99)
+  }
+
+  # Compute the log-likelihood
   sum(dnorm(y, mean = alpha * y0 + gamma, sd = zeta * y0^beta, log = TRUE), na.rm = TRUE)
 }
 
@@ -173,6 +184,112 @@ plot = do.call(rbind, pars) |>
 tikz_plot(file.path(image_dir(), "model-selection1.pdf"),
           plot, width = 7, height = 7)
 
+# ==============================================================================
+# Some of the estimated parameter values are so large/small that it is difficult
+# to detect the main patterns in the estimates. Repeat the entire procedure with
+# stricter upper and lower limits for the parameters.
+# ==============================================================================
+
+lower_lims = c(-1, 0, -2, -Inf)
+upper_lims = c(2, 10, 3, Inf)
+
+n_pairs = 5000
+cl = parallel::makeForkCluster(n_cores, mc.set.seed = TRUE)
+parallel::clusterSetRNGStream(cl, 1)
+pars = pbapply::pblapply(
+  X = 1:n_pairs,
+  cl = cl,
+  FUN = function(i) {
+    # Draw s1 and s0 randomly, then find the values of y and y0
+    loc_index = sample.int(n_loc, 2)
+    y0 = as.numeric(transformed_data[, loc_index[1]])
+    y = as.numeric(transformed_data[, loc_index[2]])
+
+    # Find all times where y0 is big and y is not NA
+    y0_big_index = which(y0 > threshold)
+    na_index = which(is.na(y))
+    good_index = setdiff(y0_big_index, na_index)
+    if (length(good_index) == 0) return(NULL)
+
+    # Fit the different model where we vary between fixing or estimating gamma and beta
+    p1 = optim(
+      par = c(.5, 1),
+      fn = loglik_pairwise,
+      control = list(fnscale = -1),
+      y = y[good_index],
+      gamma = 0,
+      beta = 0,
+      lower_lims = lower_lims,
+      upper_lims = upper_lims,
+      y0 = y0[good_index])$par
+    p2 = optim(
+      par = c(.5, 1, .5),
+      fn = loglik_pairwise,
+      control = list(fnscale = -1),
+      gamma = 0,
+      lower_lims = lower_lims,
+      upper_lims = upper_lims,
+      y = y[good_index],
+      y0 = y0[good_index])$par
+    p3 = optim(
+      par = c(.5, 1, 0),
+      fn = loglik_pairwise,
+      control = list(fnscale = -1),
+      beta = 0,
+      lower_lims = lower_lims,
+      upper_lims = upper_lims,
+      y = y[good_index],
+      y0 = y0[good_index])$par
+    p4 = optim(
+      par = c(.5, 1, .5, 0),
+      lower_lims = lower_lims,
+      upper_lims = upper_lims,
+      fn = loglik_pairwise,
+      control = list(fnscale = -1),
+      y = y[good_index],
+      y0 = y0[good_index])$par
+
+    # Return the results in a data.frame format
+    res = data.frame(
+      value = c(p1, p2, p3, p4),
+      dist = as.numeric(dist(coords[loc_index, 1:2])),
+      iter = i,
+      n_y0 = length(good_index),
+      par = c("alpha", "zeta",
+              "alpha", "zeta", "beta",
+              "alpha", "zeta", "gamma",
+              "alpha", "zeta", "beta", "gamma"),
+      model = c(1, 1,
+                2, 2, 2,
+                3, 3, 3,
+                4, 4, 4, 4))
+
+    res
+  })
+parallel::stopCluster(cl)
+
+# Plot the results
+plot = do.call(rbind, pars) |>
+  dplyr::mutate(
+    model = paste("Model", model),
+    par = factor(
+      par,
+      levels = c("alpha", "zeta", "beta", "gamma"),
+      labels = paste0("$\\", c("alpha", "zeta", "beta", "gamma"), "$"))) |>
+  ggplot() +
+  geom_point(aes(x = dist, y = value), alpha = .05) +
+  facet_grid(par ~ model, scales = "free") +
+  theme_light() +
+  theme(text = element_text(size = 15)) +
+  theme(strip.text.y = element_text(angle = 0, size = 15, colour = "black"),
+        strip.text.x = element_text(size = 12, colour = "black"),
+        strip.background = element_rect(colour = "#f0f0f0", fill = "#f0f0f0")) +
+  labs(x = "Distance [km]", y = "Value")
+
+# Export the plot to pdf format
+tikz_plot(file.path(image_dir(), "model-selection1.pdf"),
+          plot, width = 7, height = 7)
+
 # =====================================================================
 # Estimate α(d) and ζ(d)
 # =====================================================================
@@ -235,7 +352,7 @@ a_func = get_a_func(res$par[1:2])
 zeta_func = get_zeta_func(res$par[3:4])
 
 # =====================================================================
-# Pairwise estimates with fixed alpha, zeta
+# Pairwise estimates with fixed alpha, zeta (without upper/lower limits)
 # =====================================================================
 n_pairs = 5000
 cl = parallel::makeForkCluster(n_cores, mc.set.seed = TRUE)

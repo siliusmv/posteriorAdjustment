@@ -127,7 +127,6 @@ loglik = function(theta,
 # Simulate from the model y = a(y0, |s - s0|) + b(y0, |s - s0|) * Z + ε,
 # and recover parameters using R-INLA with the cgeneric models
 # =======================================================================
-
 cl = parallel::makeForkCluster(n_cores, mc.set.seed = TRUE)
 parallel::clusterSetRNGStream(cl, 1)
 params = pbapply::pblapply(
@@ -242,7 +241,6 @@ params = pbapply::pblapply(
       name = c("nugget", "lambda", "kappa", "rho", "sigma", "rho_b"),
       truth = c(1 / tau, lambda, kappa, rho, sigma, rho_b),
       cpu = fit$cpu[4],
-      mlik = fit$mlik[1],
       i = i)
     res[1, 2:3] = res[1, 3:2]
     row.names(res) = NULL
@@ -273,7 +271,7 @@ params |>
   dplyr::summarise(mean = mean(err), mean_rel = mean(rel_err),
                    sd = sd(err), max = max(abs(err)),
                    mse = mean(err^2), mae = mean(abs(err)),
-                   coverage = mean(is_included), mlik = mean(mlik))
+                   coverage = mean(is_included), truth = mean(truth))
 
 # Plot the densities of the posterior means of θ, together with the true values
 params |>

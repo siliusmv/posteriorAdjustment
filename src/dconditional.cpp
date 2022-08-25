@@ -64,7 +64,7 @@ arma::mat sigma_func(arma::sp_mat const &A,
 //' i.e. x = (y - a) for some observations y.
 //' Further, we assume that b does not depend on y0, meaning that we only need one
 //' value of b for each distance, instead of a matrix B that has one value for each
-//' pair of distance and threshold exceedance y0
+//' pair of distance and threshold exceedance y0.
 //' 
 //' The input variables are:
 //' x: an (n x d)-dimensional matrix of observations where a has already been subtracted.

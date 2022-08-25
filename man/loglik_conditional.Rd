@@ -15,7 +15,8 @@ loglik_conditional(
   dist_to_s0_from_mesh,
   A,
   n_cores = 1,
-  na.rm = TRUE
+  na.rm = TRUE,
+  use_r = FALSE
 )
 }
 \description{
@@ -50,4 +51,6 @@ any column of x that returns an NA value will result in an NA value in the outpu
 If na.rm = TRUE, then we remove the NA values before computing the likelihood.
 So if e.g. a column has 3 NA variables, then we remove these, and then we compute
 the likelihood for a (d-3)-dimensional Gaussian random variable.
+use_r: A boolean, mostly used for testing the code. Should we perform the actual computations
+using R code or using Rcpp code?
 }

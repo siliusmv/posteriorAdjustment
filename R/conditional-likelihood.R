@@ -32,6 +32,8 @@
 #'   If na.rm = TRUE, then we remove the NA values before computing the likelihood.
 #'   So if e.g. a column has 3 NA variables, then we remove these, and then we compute
 #'   the likelihood for a (d-3)-dimensional Gaussian random variable.
+#' use_r: A boolean, mostly used for testing the code. Should we perform the actual computations
+#'   using R code or using Rcpp code?
 #' @export
 loglik_conditional = function(y,
                               y0,
@@ -43,17 +45,26 @@ loglik_conditional = function(y,
                               dist_to_s0_from_mesh,
                               A,
                               n_cores = 1,
-                              na.rm = TRUE) {
+                              na.rm = TRUE,
+                              use_r = FALSE) {
+  # Ensure that the input has correct lengths/dimensions
   lengths = c(length(y0), length(y), length(A), length(dist_to_s0), length(dist_to_s0_from_mesh))
   stopifnot(all(lengths == lengths[1]))
   stopifnot(all(sapply(A, nrow) == sapply(dist_to_s0, length)))
   stopifnot(all(sapply(A, ncol) == sapply(dist_to_s0_from_mesh, length)))
+
+  # Compute the log-likelihood, possibly in parallel
   res = parallel::mclapply(
     X = seq_along(A),
     mc.cores = n_cores,
     FUN = function(i) {
+      # Compute b
       b = b_func(y0[[i]], dist_to_s0_from_mesh[[i]])
+
+      # Do the values of b depend on y or are they constant given the distance?
       const_b = all(apply(b, 1, function(x) length(unique(x)) == 1))
+
+      # Create a list of arguments that are used for computing the log-likelihood
       args = list(
         x = y[[i]] - a_func(y0[[i]], dist_to_s0[[i]]),
         A = A[[i]],
@@ -61,15 +72,123 @@ loglik_conditional = function(y,
         nugget = 1 / tau,
         logd = TRUE,
         na_rm = na.rm)
+
+      # If b does not depend on y, we can speed up computations considerably by using
+      # a different function for computing the log-likelihood
       if (const_b) {
         args$b = b[, 1]
-        func = dconditional_no_beta
+        func = ifelse(use_r, dconditional_r_no_beta, dconditional_no_beta)
       } else {
-        args$B = B
-        func = dconditional
+        args$B = b
+        func = ifelse(use_r, dconditional, dconditional_r)
       }
 
+      # Perform the actual computations
       as.numeric(do.call(func, args))
     })
   unlist(res)
+}
+
+#' Compute the (log-)likelihood of the conditional extremes distribution when
+#' a and b are given. We assume that a has already been subtracted from x,
+#' i.e. x = (y - a) for some observations y.
+#' This function is mainly written to evaluate the speed and correctness of the Rcpp
+#' function dconditional()
+#'
+#' The input variables are:
+#' x: an (n x d)-dimensional matrix of observations where a has already been subtracted.
+#' A: The projection matrix used for building the SPDE approximation
+#' B: An (m x n)-dimensional matrix containing the values of b at the m triangular mesh nodes,
+#'   for each of the n threshold exceedances at the conditioning sites of interest
+#' sigma0: The covariance matrix of the m Gaussian random variables in the triangular mesh.
+#' nugget: The variance of the nugget effect.
+#' logd: Boolean explaining if we should return the log-likelihood or the likelihood.
+#' na_rm: Boolean explaining how we should treat NA values. If na_rm = false, then
+#'   any column of x that returns an NA value will result in an NA value in the output.
+#'   If na_rm = true, then we remove the NA values before computing the likelihood.
+#'   So if e.g. a column has 3 NA variables, then we remove these, and then we compute
+#'   the likelihood for a (d-3)-dimensional Gaussian random variable.
+dconditional_r = function(x,
+                          A,
+                          B,
+                          sigma0,
+                          nugget,
+                          logd = TRUE,
+                          na_rm = TRUE) {
+  m = nrow(B)
+  n = ncol(x)
+  res = rep(NA_real_, n)
+
+  # Loop over all columns in x
+  for (i in 1:ncol(x)) {
+
+    # Compute the value of sigma given B[, i]
+    B_tmp = Matrix::Diagonal(m, B[, i])
+    sigma = as.matrix(A %*% B_tmp %*% sigma0 %*% B_tmp %*% Matrix::t(A)) + diag(nugget, nrow(A))
+
+    # Locate indices for all non-NA observations
+    if (na_rm) {
+      good_index = which(!is.na(x[, i]))
+    } else {
+      good_index = seq_along(x[, i])
+    }
+
+    # Compute the log-likelihood
+    res[i] = mvtnorm::dmvnorm(x[good_index, i], sigma = sigma[good_index, good_index], log = TRUE)
+  }
+
+  res
+}
+
+#' Compute the (log-)likelihood of the conditional extremes distribution when
+#' a and b are given. We assume that a has already been subtracted from x,
+#' i.e. x = (y - a) for some observations y.
+#' Further, we assume that b does not depend on y0, meaning that we only need one
+#' value of b for each distance, instead of a matrix B that has one value for each
+#' pair of distance and threshold exceedance y0.
+#' This function is mainly written to evaluate the speed and correctness of the Rcpp
+#' function dconditional_no_beta()
+#'
+#' The input variables are:
+#' x: an (n x d)-dimensional matrix of observations where a has already been subtracted.
+#' A: The projection matrix used for building the SPDE approximation
+#' b: An m-dimensional vector containing the values of b at the m triangular mesh nodes.
+#' sigma0: The covariance matrix of the m Gaussian random variables in the triangular mesh.
+#' nugget: The variance of the nugget effect.
+#' logd: Boolean explaining if we should return the log-likelihood or the likelihood.
+#' na_rm: Boolean explaining how we should treat NA values. If na_rm = false, then
+#'   any column of x that returns an NA value will result in an NA value in the output.
+#'   If na_rm = true, then we remove the NA values before computing the likelihood.
+#'   So if e.g. a column has 3 NA variables, then we remove these, and then we compute
+#'   the likelihood for a (d-3)-dimensional Gaussian random variable.
+dconditional_r_no_beta = function(x,
+                                  A,
+                                  b,
+                                  sigma0,
+                                  nugget,
+                                  logd = TRUE,
+                                  na_rm = TRUE) {
+  m = length(b)
+  n = ncol(x)
+  res = rep(NA_real_, n)
+
+  # Compute the value of sigma given b
+  B = Matrix::Diagonal(m, b)
+  sigma = as.matrix(A %*% B %*% sigma0 %*% B %*% Matrix::t(A)) + diag(nugget, nrow(A))
+
+  # Loop over all columns in x
+  for (i in 1:ncol(x)) {
+
+    # Locate indices for all non-NA observations
+    if (na_rm) {
+      good_index = which(!is.na(x[, i]))
+    } else {
+      good_index = seq_along(x[, i])
+    }
+
+    # Compute the log-likelihood
+    res[i] = mvtnorm::dmvnorm(x[good_index, i], sigma = sigma[good_index, good_index], log = TRUE)
+  }
+
+  res
 }

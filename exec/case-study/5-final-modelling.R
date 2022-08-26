@@ -943,12 +943,12 @@ log_scores = readRDS(log_score_filename)
 # Rename the columns of `log_scores`, to make them better for plotting
 ll_names = colnames(log_scores)
 ll_names = sub("nr\\. 1,", "Global,", ll_names)
-ll_names = sub("nr\\. 12,", "Global 2,", ll_names)
+ll_names = sub("nr\\. 12,", "Global, fixed $\\\\rho_b$,", ll_names)
 ll_names = sub("nr\\.", "Single site", ll_names)
-for (i in 2:100) ll_names = sub(paste("nr.", i), paste("nr.", i - 1), ll_names)
+for (i in 2:100) ll_names = sub(paste("Single site", i), paste("Single site", i - 1), ll_names)
 colnames(log_scores) = ll_names
 
-# Create a matrix of plot_data, that contains the ranking of all model fits
+# Create the data.frame plot_data, that contains the ranking of all model fits
 # for each of the conditioning sites used in eval_data
 plot_data = as.data.frame(log_scores) |>
   dplyr::mutate(index = rep(seq_along(eval_data$n), eval_data$n)) |>
@@ -962,24 +962,37 @@ plot_data = as.data.frame(log_scores) |>
 for (i in seq_len(nrow(plot_data))) {
   plot_data[i, ] = rank(-plot_data[i, ])
 }
+model_names = unique(sub(", [^,]+$", "", colnames(plot_data)))
+plot_data = lapply(
+  X = model_names,
+  FUN = function(name) {
+    adjusted = plot_data[, which(colnames(plot_data) == paste0(name, ", adjusted"))]
+    unadjusted = plot_data[, which(colnames(plot_data) == paste0(name, ", unadjusted"))]
+    data.frame(
+      value = c(adjusted, unadjusted),
+      adjusted = rep(c("Adjusted", "Unadjusted"), each = nrow(plot_data)),
+      model = name)
+  })
+plot_data = do.call(rbind, plot_data)
 
-# Create a plot of ranking histograms for each of the different model fits
 plot = plot_data |>
-  as.data.frame() |>
-  tidyr::pivot_longer(tidyselect::everything()) |>
-  dplyr::mutate(name = factor(name, levels = ll_names[c(1:2, 23:24, 3:22)])) |>
+  dplyr::mutate(model = factor(model, levels = model_names[c(1:3, 5:12, 4)])) |>
   ggplot() +
-  geom_histogram(aes(x = value, y = ..density..), boundary = .5, binwidth = 1) +
-  facet_wrap(~name) +
+  geom_histogram(
+    aes(x = value, y = ..density.., col = adjusted, fill = adjusted),
+    boundary = .5, binwidth = 1, position = "identity") +
+  facet_wrap(~model, nrow = 3) +
   scale_x_continuous(
-    breaks = seq(1, ncol(plot_data), by = 2), expand = c(0, 0),
-    minor_breaks = seq(2, ncol(plot_data), by = 2)) +
-  labs(x = "Ranking", y = "Density") +
+    breaks = seq(1, length(ll_names), by = 2), expand = c(0, 0),
+    minor_breaks = seq(2, length(ll_names), by = 2)) +
+  labs(x = "Ranking", y = "Density", col = "", fill = "") +
+  scale_color_manual(values = c("black", "gray")) +
+  scale_fill_manual(values = c("black", "gray")) +
   theme_light() +
   theme(text = element_text(size = 15)) +
-  theme(strip.text = element_text(size = 15, colour = "black"),
+  theme(strip.text = element_text(size = 13, colour = "black"),
         strip.background = element_rect(colour = "#f0f0f0", fill = "#f0f0f0"))
 
 # Export the plot to pdf format
 tikz_plot(file.path(image_dir(), "log-score-rankings.pdf"),
-          plot, width = 12, height = 6)
+          plot, width = 12, height = 8)

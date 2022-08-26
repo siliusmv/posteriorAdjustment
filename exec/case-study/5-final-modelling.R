@@ -640,8 +640,11 @@ saveRDS(fits, filename)
 # ===============================================================
 # Plot the adjusted/unadjusted posteriors for θ
 # ===============================================================
+fits = readRDS(filename)
+
 n_posterior_samples = 1e5
 plot_df = list()
+set.seed(123)
 for (i in seq_along(fits$fit)) {
 
   # Sample from the posteriors
@@ -745,6 +748,7 @@ tikz_plot(file.path(image_dir(), "case-study-densities.pdf"),
 dist = c(5, 10, 20, 40, 60) # All distances of interest for plotting
 n_posterior_samples = 1e5
 plot_df = list()
+set.seed(1)
 for (i in seq_along(fits$fit)) {
 
   # Sample from the posteriors
@@ -981,18 +985,20 @@ plot = plot_data |>
   geom_histogram(
     aes(x = value, y = ..density.., col = adjusted, fill = adjusted),
     boundary = .5, binwidth = 1, position = "identity") +
-  facet_wrap(~model, nrow = 3) +
+  facet_wrap(~model, nrow = 2, scales = "free_x") +
+  expand_limits(x = c(1, length(ll_names))) +
   scale_x_continuous(
-    breaks = seq(1, length(ll_names), by = 2), expand = c(0, 0),
-    minor_breaks = seq(2, length(ll_names), by = 2)) +
+    breaks = seq(1, length(ll_names), by = 3), expand = c(0, 0),
+    minor_breaks = seq(2, length(ll_names), by = 1)) +
   labs(x = "Ranking", y = "Density", col = "", fill = "") +
   scale_color_manual(values = c("black", "gray")) +
   scale_fill_manual(values = c("black", "gray")) +
   theme_light() +
   theme(text = element_text(size = 15)) +
   theme(strip.text = element_text(size = 13, colour = "black"),
-        strip.background = element_rect(colour = "#f0f0f0", fill = "#f0f0f0"))
+        strip.background = element_rect(colour = "#f0f0f0", fill = "#f0f0f0"),
+        legend.position = "top")
 
 # Export the plot to pdf format
 tikz_plot(file.path(image_dir(), "log-score-rankings.pdf"),
-          plot, width = 12, height = 8)
+          plot, width = 12, height = 6)

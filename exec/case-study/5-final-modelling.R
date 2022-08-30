@@ -701,6 +701,8 @@ plot_df = do.call(rbind, plot_df) |>
 # makes the final plot too cluttered or confusing. Explanationa for
 # each filtering is given below
 plot = plot_df |>
+  # Select a subset of all the models
+  dplyr::filter(i %in% c(1, 3, 5, 7, 9, 10)) |>
   # The density of the unadjusted global model with fixed ρ_b is too sharp,
   # and makes it difficult to focus on any of the other densities.
   # In addition, the KLD minimiser θ* for this model is different than that
@@ -708,11 +710,6 @@ plot = plot_df |>
   # in the plot just makes it more difficult to extract the relevant information.
   # Therefore, we also remove the adjusted version of the model with fixed ρ_b
   dplyr::filter(! as.numeric(tag) %in% 3:4) |>
-  # Plotting all the adjusted and all the unadjusted single site posteriors
-  # just makes everything too cluttered. We choose to remove the adjusted
-  # single site posteriors because the unadjusted posteriors are more
-  # focused, which makes them easier to see
-  dplyr::filter(! as.numeric(tag) %in% 6) |>
   # Remove observations with really low densities to make the plots more "readable"
   dplyr::filter(
     !(name == "$\\kappa$" & value > 2),
@@ -723,14 +720,20 @@ plot = plot_df |>
     !(name == "$\\tau$" & value > 250)) |>
   # Define the plotting order for the different groups, so we get the densities
   # we care the most about on top of the others
-  dplyr::mutate(group = factor(group, levels = unique(plot_df$group)[c(3:22, 1:2)])) |>
+  dplyr::mutate(
+    group = factor(
+      group,
+      levels = unique(plot_df$group)[c(seq(3, 22, by = 2), seq(4, 22, by = 2), 1:2)])
+  ) |>
   # Now, do the actual plotting
-  ggplot(mapping = aes(x = value, col = tag, linetype = tag, group = group, size = tag)) +
-  geom_density(size = 1) +
+  ggplot(aes(x = value, col = tag, linetype = tag, group = group, size = tag)) +
+  geom_density(trim = TRUE) +
   facet_wrap(~name, scales = "free") +
-  scale_color_manual(values = c("black", "black", "gray")) +
-  scale_linetype_manual(values = c("longdash", "solid", "dotted")) +
-  labs(color = "", y = "Density", x = "Value", linetype = "") +
+  scale_color_manual(values = c("black", "black", "gray", "dimgray")) +
+  scale_linetype_manual(values = c("dotted", "solid", "dotted", "solid")) +
+  scale_size_manual(values = c(1.5, 1.5, 1.2, .7)) +
+  labs(color = "", y = "Density", x = "Value", linetype = "", size = "") +
+  #scale_y_sqrt() +
   theme_light() +
   theme(
     text = element_text(size = 15),
@@ -814,6 +817,8 @@ plot_df = do.call(rbind, plot_df) |>
                  "Adjusted global 2", "Unadjusted single site", "Adjusted single site")))
 
 plot = plot_df |>
+  # Select a subset of all the models
+  dplyr::filter(i %in% c(1, 3, 5, 7, 9, 10)) |>
   # The density of the unadjusted global model with fixed ρ_b is too sharp,
   # and makes it difficult to focus on any of the other densities.
   # In addition, the KLD minimiser θ* for this model is different than that
@@ -821,11 +826,6 @@ plot = plot_df |>
   # in the plot just makes it more difficult to extract the relevant information.
   # Therefore, we also remove the adjusted version of the model with fixed ρ_b
   dplyr::filter(! as.numeric(tag) %in% 3:4) |>
-  # Plotting all the adjusted and all the unadjusted single site posteriors
-  # just makes everything too cluttered. We choose to remove the adjusted
-  # single site posteriors because the unadjusted posteriors are more
-  # focused, which makes them easier to see
-  dplyr::filter(! as.numeric(tag) %in% 6) |>
   # Create the nametags that will be used as faceting labels in the final plot
   dplyr::mutate(
     nametag = paste0(
@@ -836,14 +836,19 @@ plot = plot_df |>
     nametag_nr = as.numeric(nametag)) |>
   # Define the plotting order for the different groups, so we get the densities
   # we care the most about on top of the others
-  dplyr::mutate(group = factor(group, levels = unique(plot_df$group)[c(3:22, 1:2)])) |>
+  dplyr::mutate(
+    group = factor(
+      group,
+      levels = unique(plot_df$group)[c(seq(3, 22, by = 2), seq(4, 22, by = 2), 1:2)])
+  ) |>
   # Now, do the actual plotting
-  ggplot(aes(x = value, col = tag, linetype = tag, group = group)) +
-  geom_density(size = 1) +
+  ggplot(aes(x = value, col = tag, linetype = tag, group = group, size = tag)) +
+  geom_density(trim = TRUE) +
   facet_wrap(~nametag, scales = "free", nrow = 2) +
-  scale_color_manual(values = c("black", "black", "gray")) +
-  scale_linetype_manual(values = c("longdash", "solid", "dotted")) +
-  labs(color = "", y = "Density", x = "Value", linetype = "") +
+  scale_color_manual(values = c("black", "black", "gray", "dimgray")) +
+  scale_linetype_manual(values = c("dotted", "solid", "dotted", "solid")) +
+  scale_size_manual(values = c(1.5, 1.5, 1.2, .7)) +
+  labs(color = "", y = "Density", x = "Value", linetype = "", size = "") +
   theme_light() +
   theme(
     text = element_text(size = 15),

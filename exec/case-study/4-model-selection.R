@@ -9,7 +9,7 @@ library(sf)
 # ==============================================================================
 # Fix necessary model parameters:
 # ==============================================================================
-threshold = qlaplace(.95) # The threshold t for defining the conditional extremes model
+threshold = qlaplace(.9975) # The threshold t for defining the conditional extremes model
 n_cores = 6 # Run code in parallel
 r = 5 # Radius used for computing aggregated empirical distribution functions
 
@@ -526,7 +526,6 @@ data.frame(mean = mean_vals, var = var_vals, dist = unique_dists) |>
   ggplot() +
   geom_point(aes(x = dist, y = value)) +
   facet_wrap(~name, scales = "free")
-
 
 # # =======================================================================================
 # # Convert the "heavy" pdf files created in this script to "lighter" compressed jpeg files

@@ -25,7 +25,6 @@ case_study_filename = file.path(results_dir(), "final-modelling.rds") # Results 
 theta_names = c("log_lambda", "log_kappa", "log_rho_b", "log_rho", "log_sigma", "log_precision")
 theta_tex_names = paste0("$\\", c("lambda", "kappa", "rho_b", "rho", "sigma", "tau"), "$")
 
-
 if (!file.exists(filename)) saveRDS(list(), filename)
 
 # ==============================================================================

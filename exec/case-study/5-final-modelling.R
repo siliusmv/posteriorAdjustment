@@ -12,7 +12,7 @@ make_cgeneric("all")
 # ==============================================================================
 # Decide necessary model parameters:
 # ==============================================================================
-threshold = qlaplace(.95) # The threshold t for defining the conditional extremes model
+threshold = qlaplace(.9975) # The threshold t for defining the conditional extremes model
 n_cores = 15 # Run code in parallel. Check yourself that this is an ok number
 r = 5 # Radius used for computing aggregated empirical distribution functions
 
@@ -129,7 +129,8 @@ plot = local({
     guides(shape = "none", size = "none", color = "none") +
     labs(x = "Easting", y = "Northing") +
     theme(axis.ticks = element_blank(), axis.text = element_blank(),
-          text = element_text(size = 23))
+          text = element_text(size = 23),
+          panel.grid = element_blank())
 })
 tikz_plot(file.path(image_dir(), "design-of-experiment.pdf"),
           plot, width = 12, height = 12)
@@ -205,7 +206,7 @@ loglik = function(theta,
 # Compute the maximum likelihood estimator. We repeat the optimisation process
 # multiple times in case it does not manage to converge withing the first
 # maxit = 500 number of iterations
-est = list(par = c(3.8, -.4, -.5, 2.3, .3, 4.2), convergence = 1)
+est = list(par = c(3.0, -.4, -2, 2.6, .6, 3.1), convergence = 1)
 while (est$convergence != 0) {
   est = optim(
     par = est$par,
@@ -218,8 +219,6 @@ while (est$convergence != 0) {
     n_cores = n_cores,
     control = list(fnscale = -1, maxit = 300, trace = 6, REPORT = 1))
 }
-
-#est = list(par = c(3.8349641, -0.3693040, -0.4058357, 2.3453401, 0.2717195, 4.2041679))
 
 # ==============================================================================
 # Create all the model components for fitting the global conditional extremes
@@ -473,7 +472,7 @@ while (est2$convergence != 0) {
     A = lapply(data$obs_index, function(x) inla.spde.make.A(mesh, coords[x, ])),
     rho_b = exp(log_rho_b),
     n_cores = n_cores,
-    control = list(fnscale = -1, trace = 6, REPORT = 1))
+    control = list(fnscale = -1, maxit = 300, trace = 6, REPORT = 1))
 }
 
 # Then, redefine the spde_model for Z_b, so ρ_b is fixed
@@ -702,7 +701,7 @@ plot_df = do.call(rbind, plot_df) |>
 # each filtering is given below
 plot = plot_df |>
   # Select a subset of all the models
-  dplyr::filter(i %in% c(1, 3, 5, 7, 9, 10)) |>
+  dplyr::filter(i %in% c(1, 3, 4, 8, 9, 10)) |>
   # The density of the unadjusted global model with fixed ρ_b is too sharp,
   # and makes it difficult to focus on any of the other densities.
   # In addition, the KLD minimiser θ* for this model is different than that
@@ -712,12 +711,16 @@ plot = plot_df |>
   dplyr::filter(! as.numeric(tag) %in% 3:4) |>
   # Remove observations with really low densities to make the plots more "readable"
   dplyr::filter(
-    !(name == "$\\kappa$" & value > 2),
-    !(name == "$\\lambda$" & value > 100),
-    !(name == "$\\rho$" & value > 15),
+    !(name == "$\\kappa$" & value > .9),
+    !(name == "$\\kappa$" & value < .3),
+    !(name == "$\\lambda$" & value > 30),
+    !(name == "$\\lambda$" & value < 5),
+    !(name == "$\\rho$" & value > 20),
     !(name == "$\\rho$" & value < 5),
-    !(name == "$\\rho_b$" & value > 2.5),
-    !(name == "$\\tau$" & value > 250)) |>
+    !(name == "$\\sigma$" & value > 2.5),
+    !(name == "$\\sigma$" & value < 1.5),
+    !(name == "$\\rho_b$" & value > .7),
+    !(name == "$\\tau$" & value > 100)) |>
   # Define the plotting order for the different groups, so we get the densities
   # we care the most about on top of the others
   dplyr::mutate(
@@ -818,7 +821,7 @@ plot_df = do.call(rbind, plot_df) |>
 
 plot = plot_df |>
   # Select a subset of all the models
-  dplyr::filter(i %in% c(1, 3, 5, 7, 9, 10)) |>
+  dplyr::filter(i %in% c(1, 3, 4, 8, 9, 10)) |>
   # The density of the unadjusted global model with fixed ρ_b is too sharp,
   # and makes it difficult to focus on any of the other densities.
   # In addition, the KLD minimiser θ* for this model is different than that
@@ -826,6 +829,19 @@ plot = plot_df |>
   # in the plot just makes it more difficult to extract the relevant information.
   # Therefore, we also remove the adjusted version of the model with fixed ρ_b
   dplyr::filter(! as.numeric(tag) %in% 3:4) |>
+  # Remove observations with really low densities to make the plots more "readable"
+  dplyr::filter(
+    !(name == "$\\alpha$" & dist == 5 & value < .45),
+    !(name == "$\\alpha$" & dist == 5 & value > .75),
+    !(name == "$\\alpha$" & dist == 10 & value < .35),
+    !(name == "$\\alpha$" & dist == 10 & value > .65),
+    !(name == "$\\alpha$" & dist == 20 & value < .15),
+    !(name == "$\\alpha$" & dist == 20 & value > .5),
+    !(name == "$\\alpha$" & dist == 40 & value < .05),
+    !(name == "$\\alpha$" & dist == 40 & value > .35),
+    !(name == "$\\alpha$" & dist == 60 & value > .3),
+    !(name == "$\\zeta$" & value > 2.5),
+    !(name == "$\\zeta$" & value < 1.5)) |>
   # Create the nametags that will be used as faceting labels in the final plot
   dplyr::mutate(
     nametag = paste0(

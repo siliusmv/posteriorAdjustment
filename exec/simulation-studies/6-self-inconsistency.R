@@ -242,11 +242,13 @@ loglik = function(theta, x, t) {
   alpha = theta[1]
   beta = theta[2]
   if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1) return(-1e199)
-  index = which(x[, 1] > t)
-  res = sum(dnorm(x[index, 2], alpha * x[index, 1], x[index, 1] ^ beta, log = TRUE))
+  first = which(x[, 1] > t)
+  second = which(x[, 2] > t)
+  res =
+    sum(dnorm(x[first, 2], alpha * x[first, 1], x[first, 1] ^ beta, log = TRUE)) +
+    sum(dnorm(x[second, 1], alpha * x[second, 2], x[second, 2] ^ beta, log = TRUE))
   res
 }
-
 
 # Simulate large amounts of data using the two simulation algorithms, then
 # estimate the KLD minimiser θ* and show that it differs considerably

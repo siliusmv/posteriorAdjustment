@@ -89,7 +89,12 @@ in. The simulation-study scripts are:
   script depends on the results of the case study in `case-study/5-final-modelling.R`. Results of
   the simulation study are saved in the two files `inst/extdata/results/conditional-theta-star.rds`
   and `inst/extdata/results/conditional-adjustment.rds`. 
-- `6-self-inconsistency.R`  
+- `6-gaussian-conditional-extremes.R`  
+  This script contains the code for fitting the conditional extremes model to observations from a
+  spatial Gaussian random field, and then evaluating frequency properties of unadjusted and
+  adjusted posteriors. Results of the simulation study are saved in the file
+  `inst/extdata/results/gaussian-conditional-extremes.rds`.
+- `7-self-inconsistency.R`  
   This script demonstrates the problems that are caused by the lack of self-consistency of the
   conditional extremes model, as described in Appendix B of the paper.
 

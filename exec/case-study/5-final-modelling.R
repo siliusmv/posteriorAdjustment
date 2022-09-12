@@ -123,8 +123,8 @@ plot = local({
     inlabru::gg(mesh, int.color = "grey", ext.color = "grey") +
     geom_point(aes(x = X, y = Y, shape = tag, size = tag, color = tag)) +
     scale_color_manual(values = c("red", "black", "black")) +
-    scale_shape_manual(values = c(19, 19, 19)) +
-    scale_size_manual(values = c(2.4, 2.4, .5)) +
+    scale_shape_manual(values = c(17, 19, 19)) +
+    scale_size_manual(values = c(3, 2.4, .5)) +
     theme_light() +
     guides(shape = "none", size = "none", color = "none") +
     labs(x = "Easting", y = "Northing") +

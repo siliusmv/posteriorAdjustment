@@ -21,10 +21,6 @@ filename = file.path(results_dir(), "conditional-adjustment.rds") # Where to sto
 theta_star_filename = file.path(results_dir(), "conditional-theta-star.rds") # Where to store θ*
 case_study_filename = file.path(results_dir(), "final-modelling.rds") # Results from the case study
 
-# Parameter names used for creating a latex-friendly table of the results
-theta_names = c("log_lambda", "log_kappa", "log_rho_b", "log_rho", "log_sigma", "log_precision")
-theta_tex_names = paste0("$\\", c("lambda", "kappa", "rho_b", "rho", "sigma", "tau"), "$")
-
 if (!file.exists(filename)) saveRDS(list(), filename)
 
 # ==============================================================================
@@ -452,6 +448,10 @@ theta_star = readRDS(theta_star_filename)
 theta_reordering = res[[1]]$theta_reordering
 n_theta = length(theta_reordering)
 
+# Parameter names used for creating a latex-friendly table of the results
+theta_names = c("log_lambda", "log_kappa", "log_rho_b", "log_rho", "log_sigma", "log_precision")
+theta_tex_names = c("lambda", "kappa", "rho_b", "rho", "sigma", "tau")
+
 # If we had any bad runs, remove them
 bad_index = which(sapply(res, length) == 0)
 if (any(bad_index)) res = res[-bad_index]
@@ -508,36 +508,35 @@ tmp = is_inside_interval |>
   tidyr::pivot_longer(all_of(theta_names)) |>
   dplyr::group_by(prob, label, name) |>
   dplyr::summarise(coverage = mean(value)) |>
-  dplyr::mutate(name = factor(
-    x = name,
-    levels = theta_names,
-    labels = theta_tex_names)) |>
-  tidyr::pivot_wider(names_from = name, values_from = coverage)
-tmp = tmp[rep(2 * seq_len(nrow(tmp) / 2), each = 2) - c(0, 1), c(1:2, 4, 3, 7, 6, 8, 5)]
+  dplyr::mutate(
+    name = factor(
+      x = name,
+      levels = theta_names,
+      labels = paste0("$\\", theta_tex_names)),
+    label = factor(
+      x = label,
+      levels = c("Unadjusted", "Adjusted"),
+      labels = c("$", "_\\text{adj}$"))) |>
+  tidyr::pivot_wider(names_from = c(name, label), values_from = coverage)
+names(tmp) = sub("_\\$", "$", names(tmp))
+names(tmp) = sub("_\\\\", "\\\\", names(tmp))
+names(tmp) = sub("rho_b_", "{rho_b}_", names(tmp))
+tmp = tmp[, c(1, 9, 3, 8, 2, 12, 6, 11, 5, 13, 7, 10, 4)]
 print(tmp)
 
 # ==============================================
 # Reformat the results into latex tabular format
 # ==============================================
-table = paste(paste(c("Aim", "Method", names(tmp)[-c(1, 2)]), collapse = " & "), "\\\\")
-table[2] = "\\midrule"
+table = paste(paste(c("Aim", names(tmp)[-1]), collapse = " & "), "\\\\")
+table[2] = "\\hline"
 j = 3
 for (i in 1:nrow(tmp)) {
   table[j] = paste(
-    c(tmp$label[i], paste0("$", round(100 * tmp[i, -c(1, 2)], digits = 0), "\\%$")),
+    c(paste0("$", round(100 * tmp$prob[i], digits = 0), "\\%$"),
+      paste0("$", round(100 * tmp[i, -1], digits = 0), "\\%$")),
     collapse = " & ")
-  if (i %% 2 == 1) {
-    table[j] = paste(
-      c(paste0("$", round(100 * tmp$prob[i], digits = 0), "\\%$"), table[j]), collapse = " & ")
-  } else {
-    table[j] = paste(c("", table[j]), collapse = " & ")
-  }
   table[j] = paste(table[j], "\\\\")
   j = j + 1
-  if (i %% 2 == 0 && i != nrow(tmp)) {
-    table[j] = "\\midrule"
-    j = j + 1
-  }
 }
 table = paste(paste(table, collapse = "\n"), "\n")
 

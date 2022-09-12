@@ -220,36 +220,33 @@ tmp = is_inside_interval |>
   tidyr::pivot_longer(all_of(theta_names)) |>
   dplyr::group_by(prob, label, name) |>
   dplyr::summarise(coverage = mean(value)) |>
-  dplyr::mutate(name = factor(
-    x = name,
-    levels = theta_names,
-    labels = paste0("$\\", c("tau", "rho", "sigma"), "$"))) |>
-  tidyr::pivot_wider(names_from = name, values_from = coverage)
-tmp = tmp[rep(2 * seq_len(nrow(tmp) / 2), each = 2) - c(0, 1), ]
+  dplyr::mutate(
+    name = factor(
+      x = name,
+      levels = theta_names,
+      labels = paste0("$\\", c("tau", "rho", "sigma"))),
+    label = factor(
+      x = label,
+      levels = c("Unadjusted", "Adjusted"),
+      labels = c("$", "_\\text{adj}$"))) |>
+  tidyr::pivot_wider(names_from = c(name, label), values_from = coverage)
+tmp = tmp[, c(1, 5, 2, 6, 3, 7, 4)]
+names(tmp) = sub("_", "", names(tmp))
 print(tmp)
 
 # ==============================================
 # Reformat the results into latex tabular format
 # ==============================================
-table = paste(paste(c("\\(1 - \\alpha\\)", "Method", names(tmp)[-(1:2)]), collapse = " & "), "\\\\")
-table[2] = "\\midrule"
+table = paste(paste(c("Aim", names(tmp)[-1]), collapse = " & "), "\\\\")
+table[2] = "\\hline"
 j = 3
 for (i in 1:nrow(tmp)) {
   table[j] = paste(
-    c(tmp$label[i], paste0("$", round(100 * tmp[i, -(1:2)], digits = 0), "\\%$")),
+    c(paste0("$", round(100 * tmp$prob[i], digits = 0), "\\%$"),
+      paste0("$", round(100 * tmp[i, -1], digits = 0), "\\%$")),
     collapse = " & ")
-  if (i %% 2 == 1) {
-    table[j] = paste(
-      c(paste0("$", round(100 * tmp$prob[i], digits = 0), "\\%$"), table[j]), collapse = " & ")
-  } else {
-    table[j] = paste(c("", table[j]), collapse = " & ")
-  }
   table[j] = paste(table[j], "\\\\")
   j = j + 1
-  if (i %% 2 == 0 && i != nrow(tmp)) {
-    table[j] = "\\midrule"
-    j = j + 1
-  }
 }
 table = paste(paste(table, collapse = "\n"), "\n")
 

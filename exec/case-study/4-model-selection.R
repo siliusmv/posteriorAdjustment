@@ -451,12 +451,12 @@ plot1 = do.call(rbind, pars) |>
     levels = c("alpha", "zeta", "beta", "gamma"),
     labels = paste0("$\\", c("alpha", "zeta", "beta", "gamma"), "$"))) |>
   ggplot() +
-  geom_point(aes(x = dist, y = value), alpha = .1) +
+  geom_point(aes(x = dist, y = value), alpha = .2, col = "gray") +
   facet_wrap(~par, scales = "free", nrow = 1) +
   geom_line(data = data.frame(x = xx, y = a_func(1, xx), par = "$\\alpha$"),
-            aes(x = x, y = y), col = "blue", size = 2) +
+            aes(x = x, y = y), size = 2) +
   geom_line(data = data.frame(x = xx, y = zeta_func(1, xx), par = "$\\zeta$"),
-            aes(x = x, y = y), col = "blue", size = 2) +
+            aes(x = x, y = y), size = 2) +
   theme_light() +
   theme(text = element_text(size = 15)) +
   theme(strip.text = element_text(size = 15, colour = "black"),

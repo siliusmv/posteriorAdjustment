@@ -104,11 +104,11 @@ tmp = coverage |>
   do.call(what = cbind) |>
   (\(x) cbind(probs, x))() |>
   (\(x) round(x * 100, digits = 0))()
-colnames(tmp) = c("\\(1 - \\alpha\\)", "Unadjusted", "Adjusted")
+colnames(tmp) = c("Aim", "Unadjusted", "Adjusted")
 rownames(tmp) = NULL
 
 table = paste(paste(colnames(tmp), collapse = " & "), "\\\\")
-table[2] = "\\midrule"
+table[2] = "\\hline"
 for (i in 1:nrow(tmp)) {
   table[[length(table) + 1]] = paste(paste0("$", tmp[i, ], "\\%$", collapse = " & "), "\\\\")
 }

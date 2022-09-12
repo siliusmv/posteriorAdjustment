@@ -973,6 +973,11 @@ ll_names = sub("nr\\.", "Single site", ll_names)
 for (i in 2:100) ll_names = sub(paste("Single site", i), paste("Single site", i - 1), ll_names)
 colnames(log_scores) = ll_names
 
+# Remove the global model with fixed rho_b from the plot, since we removed it from
+# the paper.
+log_scores = log_scores[, -c(23, 24)]
+ll_names = ll_names[-c(23, 24)]
+
 # Create the data.frame plot_data, that contains the ranking of all model fits
 # for each of the conditioning sites used in eval_data
 plot_data = as.data.frame(log_scores) |>
@@ -1001,7 +1006,7 @@ plot_data = lapply(
 plot_data = do.call(rbind, plot_data)
 
 plot = plot_data |>
-  dplyr::mutate(model = factor(model, levels = model_names[c(1:3, 5:12, 4)])) |>
+  dplyr::mutate(model = factor(model, levels = model_names[c(1:2, 4:11, 3)])) |>
   ggplot() +
   geom_histogram(
     aes(x = value, y = ..density.., col = adjusted, fill = adjusted),

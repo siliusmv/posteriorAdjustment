@@ -21,19 +21,7 @@ probs = c(.9, .95, .99) # Credible interval probabilities
 filename = file.path(results_dir(), "gaussian-conditional-extremes.rds")
 if (!file.exists(filename)) saveRDS(list(), filename)
 
-# Parameter names used for creating a latex-friendly table of the results
-theta_names = c("log_lambda", "log_kappa", "log_rho", "log_sigma", "log_precision")
-theta_tex_names = paste0("$\\", c("lambda", "kappa", "rho", "sigma", "tau"), "$")
-
-# ==============================================================================
-# Load the case study data to create a similar setting in the simulation
-# as for the case study
-# ==============================================================================
-radar = readRDS(file.path(downloads_dir(), "radar.rds"))
-coords = st_coordinates(radar$coords)
-n_loc = nrow(coords)
-rm(radar)
-
+# Create a regular grid of coordinates, similar to the case study
 coords = expand.grid(x = 275:290, y = 7090:7105) |>
   as.matrix()
 n_loc = nrow(coords)
@@ -49,9 +37,12 @@ spde = inla.spde2.pcmatern(mesh, prior.range = c(60, .95), prior.sigma = c(4, .0
 # Create the projection matrix for the mesh and SPDE
 A = inla.spde.make.A(mesh, coords)
 
-# Sample a ton of Gaussian realisations
+# Compute the precision matrix of the SPDE approximation mesh nodes
 Q = inla.spde2.precision(spde, c(log(8), log(1)))
 
+# Sample several realisations of the Gaussian random field, and
+# transform them to Laplace marginals
+set.seed(1)
 transformed_data = local({
   res = list()
   while (TRUE) {
@@ -65,6 +56,11 @@ transformed_data = local({
   t(res)
 })
 
+# ==============================================================================
+# Perform pairwise model selection in a similar fashion to the script
+# exec/case-study/4-model-selection.R
+# ==============================================================================
+# This is the same function as defined in the model selection script
 loglik_pairwise = function(theta,
                            y,
                            y0,
@@ -202,6 +198,11 @@ do.call(rbind, pars) |>
         strip.text.x = element_text(size = 12, colour = "black"),
         strip.background = element_rect(colour = "#f0f0f0", fill = "#f0f0f0")) +
   labs(x = "Distance [km]", y = "Value")
+# There are clear trends in all four parameters, meaning that the sensible thing
+# would be to choose parametric functions for all of α(), ζ(), β() and γ(). However,
+# we would prefer to have as similar a setting to the simulation study in
+# 5-conditional-extremes-adjustment.R as possible. Therefore, we will first check
+# if the model where β = 0 and γ = 0 gives an acceptable fit to the data.
 
 # Extract all observations from when a threshold exceedance is observed,
 # using every single location as a possible conditioning site
@@ -220,7 +221,7 @@ for (i in seq_along(data$s0)) {
   data$dist_to_s0_from_mesh[[i]] = dist_euclid(mesh$loc[, 1:2], data$s0[[i]])
 }
 
-# Create functions for computing a(y0, d) = α(d) * y0, and ζ(d)
+# Create functions for computing α(d) and ζ(d)
 get_a_func = function(theta) {
   λ = exp(theta[1])
   κ = exp(theta[2])
@@ -263,11 +264,9 @@ res = optim(
   control = list(fnscale = -1, trace = 6),
   data = data)
 
-# Compute the maximum likelihood estimators of a(y0, d) and ζ(d)
+# Compute the maximum likelihood estimators of α(d) and ζ(d)
 a_func = get_a_func(res$par[1:2])
 zeta_func = get_zeta_func(res$par[3:4])
-
-rho_b = exp(res$par[4])
 
 # =====================================================================
 # Pairwise estimates with fixed alpha, zeta (without upper/lower limits)
@@ -382,23 +381,9 @@ do.call(rbind, pars) |>
         strip.background = element_rect(colour = "#f0f0f0", fill = "#f0f0f0")) +
   labs(x = "Distance [km]", y = "Value")
 
+# There are still some clear patterns in β() and γ(). However, these are close enough
+# to zero that our model gives an acceptable fit.
 
-get_a_func = function(lambda, kappa) {
-  function(y0, dist_to_s0) {
-    alpha = exp(- (dist_to_s0 / lambda)^kappa)
-    matrix(rep(y0, each = length(alpha)) * rep(alpha, length(y0)),
-           nrow = length(dist_to_s0),
-           ncol = length(y0))
-  }
-}
-get_b_func = function(rho_b) {
-  function(y0, dist_to_s0) {
-    tmp = dist_to_s0 / rho_b
-    tmp[tmp < 1e-9] = 1e-9
-    b = sqrt(1 - exp(-2 * tmp))
-    matrix(rep(b, length(y0)), nrow = length(dist_to_s0), ncol = length(y0))
-  }
-}
 
 loglik = function(theta,
                   y,
@@ -411,25 +396,26 @@ loglik = function(theta,
                   n_cores = 1) {
   if (is.null(rho_b)) {
     stopifnot(length(theta) == 6)
-    rho_b = exp(theta[3])
+    log_rho_b = theta[3]
     log_rho = theta[4]
     log_sigma = theta[5]
     tau = exp(theta[6])
   } else {
     stopifnot(length(theta) == 5)
     log_rho = theta[3]
+    log_rho_b = log(rho_b)
     log_sigma = theta[4]
     tau = exp(theta[5])
   }
-  lambda = exp(theta[1])
-  kappa = exp(theta[2])
+  log_lambda = theta[1]
+  log_kappa = theta[2]
   Q = INLA::inla.spde2.precision(spde, c(log_rho, log_sigma))
   cov_mat = as.matrix(Matrix::solve(Q))
   res = loglik_conditional(
     y = y,
     y0 = y0,
-    a_func = get_a_func(lambda, kappa),
-    b_func = get_b_func(rho_b),
+    a_func = get_a_func(c(log_lambda, log_kappa)),
+    b_func = get_zeta_func(c(0, log_rho_b)),
     sigma = cov_mat,
     tau = tau,
     dist_to_s0 = dist_to_s0,
@@ -483,16 +469,14 @@ for (i in seq_along(data$s0)) {
 }
 
 # Compute the maximum likelihood estimator, which is approximately equal to θ*.
-# Use θ as initial values
-est = list(par = c(res$par[c(1, 2, 4)], log(20), res$par[3], 4), convergence = 1)
-est = list(par = c(res$par[c(1, 2, 4)], res$par[3], 4), convergence = 1)
+# We choose to
+est = list(par = c(res$par[c(1, 2, 4)], 4, res$par[3], 4), convergence = 1)
 while (est$convergence != 0) {
   est = optim(
     par = est$par,
     fn = loglik,
     y = data$y,
     y0 = data$y0,
-    rho_b = rho_b,
     dist_to_s0 = data$dist_to_s0,
     dist_to_s0_from_mesh = data$dist_to_s0_from_mesh,
     A = lapply(data$obs_index, function(x) A[x, ]),
@@ -501,15 +485,14 @@ while (est$convergence != 0) {
 }
 theta_star = est$par
 
-# > theta_star
-# [1]  2.2726617  0.2282242 -0.3371791  2.5447459  0.3760144  5.6419177
-
 # ===============================================================================
 # Sample smaller amounts of data and fit the conditional extremes model
-# many times, in order to estimate coverage percentages
+# many times, in order to estimate coverage percentages.
+# The estimated value of rho_b is so small that we choose to fix it instead of
+# estimating it in the following.
 # ===============================================================================
 
-single_site_index = s0_index[6]
+rho_b = exp(theta_star[3])
 
 # Run all the n_repl experiments
 cl = parallel::makeForkCluster(n_cores, mc.set.seed = TRUE)
@@ -522,6 +505,7 @@ pbapply::pblapply(
     # Store the state of the random seed before we start simulating random data
     seed = .Random.seed
 
+    # Simulate data and transform it to Laplace marginals
     transformed_data = local({
       samples = rnorm_spde(5e2, Q)
       samples = as.matrix(A %*% samples)
@@ -540,14 +524,6 @@ pbapply::pblapply(
       n = thinning,
       r = cumsum(4 * thinning))
 
-    single_site_data = extract_extreme_fields(
-      data = transformed_data,
-      coords = coords,
-      s0_index = single_site_index,
-      threshold = threshold,
-      n = thinning,
-      r = cumsum(4 * thinning))
-
     rm(transformed_data)
 
     # Compute distances from the mesh to the conditioning sites
@@ -556,16 +532,11 @@ pbapply::pblapply(
       data$dist_to_s0_from_mesh[[j]] = dist_euclid(mesh$loc[, 1:2], data$s0[[j]])
     }
 
-    single_site_data$dist_to_s0_from_mesh = list()
-    for (j in seq_along(single_site_data$s0)) {
-      single_site_data$dist_to_s0_from_mesh[[j]] = dist_euclid(mesh$loc[, 1:2], single_site_data$s0[[j]])
-    }
-
     # Estimate the maximum likelihood estimator to get good initial values for the
     # model fitting. We only allow maxit = 120 because this gives initial values
     # that are good enough, whitout spending too much time locating the actual maximum
     est = optim(
-      par = theta_star,
+      par = theta_star[-3],
       fn = loglik,
       y = data$y,
       y0 = data$y0,
@@ -576,21 +547,8 @@ pbapply::pblapply(
       n_cores = 1,
       control = list(fnscale = -1, maxit = 120))
 
-    single_site_est = optim(
-      par = theta_star,
-      fn = loglik,
-      y = single_site_data$y,
-      y0 = single_site_data$y0,
-      rho_b = rho_b,
-      dist_to_s0 = single_site_data$dist_to_s0,
-      dist_to_s0_from_mesh = single_site_data$dist_to_s0_from_mesh,
-      A = lapply(single_site_data$obs_index, function(x) A[x, ]),
-      n_cores = 1,
-      control = list(fnscale = -1, maxit = 120))
-
     # R-INLA requires the observations y to be on a vector format
     y_inla = unlist(data$y)
-    y_single_site_inla = unlist(single_site_data$y)
 
     # Our implementation of the cgeneric model for a requires y0 and dist_to_s0 as input.
     # However, it requires one value of y0 and dist_to_s0 for each of the observations y.
@@ -601,10 +559,6 @@ pbapply::pblapply(
     y0_inla = rep(unlist(data$y0), sapply(dist_to_s0_inla, length))
     dist_to_s0_inla = unlist(dist_to_s0_inla)
 
-    dist_to_s0_single_site_inla = single_site_data$dist_to_s0[rep(seq_along(single_site_data$n), single_site_data$n)]
-    y0_single_site_inla = rep(unlist(single_site_data$y0), sapply(dist_to_s0_single_site_inla, length))
-    dist_to_s0_single_site_inla = unlist(dist_to_s0_single_site_inla)
-
     # Define the cgeneric model for a
     a_priors = list(lambda = c(1, 3, 3), kappa = c(1, 0, 3))
     a_model = a_generic_model(
@@ -613,61 +567,29 @@ pbapply::pblapply(
       init = est$par[1:2],
       priors = a_priors)
 
-    a_single_site_model = a_generic_model(
-      y0 = y0_single_site_inla,
-      dist_to_s0 = dist_to_s0_single_site_inla,
-      init = single_site_est$par[1:2],
-      priors = a_priors)
-
-    # Define the cgeneric model for Z_b
+    # Define the cgeneric model for Z_b where we don't estimate rho_b
     spde_priors = list(
       rho = c(1, 40, .95),
       sigma = c(1, 3, .05),
-      #rho_b = c(1, log(6), 2))
       rho_b = c(0, log(rho_b)))
     spde_model = spde_generic_model_with_b_func(
       spde = spde,
       n = data$n,
-      #init = est$par[c(4, 5, 3)],
       init = est$par[c(4, 5)],
       priors = spde_priors,
       dist_to_s0 = do.call(rbind, data$dist_to_s0_from_mesh))
-    spde_single_site_model = spde_generic_model_with_b_func(
-      spde = spde,
-      n = single_site_data$n,
-      #init = single_site_est$par[c(4, 5, 3)],
-      init = single_site_est$par[c(4, 5)],
-      priors = spde_priors,
-      dist_to_s0 = do.call(rbind, single_site_data$dist_to_s0_from_mesh))
 
     # Create the necessary objects for running R-INLA with the conditional extremes model
     formula = y ~ -1 +
       f(spatial, model = spde_model) +
       f(idx, model = a_model)
-    single_site_formula = y ~ -1 +
-      f(spatial, model = spde_single_site_model) +
-      f(idx, model = a_single_site_model)
 
     effects = list(
       spatial = seq_len(sum(data$n) * mesh$n),
       idx = seq_along(y_inla))
-    single_site_effects = list(
-      spatial = seq_len(sum(single_site_data$n) * mesh$n),
-      idx = seq_along(y_single_site_inla))
 
     A_inla = local({
       all_location_indices = rep(data$obs_index, data$n)
-      all_repl_indices = rep(seq_along(all_location_indices), sapply(all_location_indices, length))
-      all_location_indices = unlist(all_location_indices)
-      A = inla.spde.make.A(
-        mesh,
-        loc = coords,
-        index = all_location_indices,
-        repl = all_repl_indices)
-      A
-    })
-    A_single_site_inla = local({
-      all_location_indices = rep(single_site_data$obs_index, single_site_data$n)
       all_repl_indices = rep(seq_along(all_location_indices), sapply(all_location_indices, length))
       all_location_indices = unlist(all_location_indices)
       A = inla.spde.make.A(
@@ -683,11 +605,7 @@ pbapply::pblapply(
       data = list(y = y_inla),
       A = list(spatial = A_inla, 1),
       effects = effects)
-    single_site_stack = inla.stack(
-      data = list(y = y_single_site_inla),
-      A = list(spatial = A_single_site_inla, 1),
-      effects = single_site_effects)
-    rm(A_inla, A_single_site_inla, effects, single_site_effects)
+    rm(A_inla, effects)
 
     # Fit the model
     fit = tryCatch({
@@ -696,26 +614,8 @@ pbapply::pblapply(
         data = inla.stack.data(stack),
         control.predictor = list(A = inla.stack.A(stack)),
         only.hyperparam = TRUE,
-        #control.mode = list(theta = est$par[c(6, 4:5, 3, 1:2)], restart = TRUE),
         control.mode = list(theta = est$par[c(5, 3:4, 1:2)], restart = TRUE),
         control.inla = list(control.vb = list(enable = FALSE)),
-        #verbose = TRUE,
-        num.threads = 1,
-        inla.mode = "experimental")
-    }, error = function(e) NULL)
-    if (is.null(fit)) next
-
-    # Fit the model
-    single_site_fit = tryCatch({
-      inla(
-        formula = single_site_formula,
-        data = inla.stack.data(single_site_stack),
-        control.predictor = list(A = inla.stack.A(single_site_stack)),
-        only.hyperparam = TRUE,
-        #control.mode = list(theta = single_site_est$par[c(6, 4:5, 3, 1:2)], restart = TRUE),
-        control.mode = list(theta = single_site_est$par[c(5, 3:4, 1:2)], restart = TRUE),
-        control.inla = list(control.vb = list(enable = FALSE)),
-        #verbose = TRUE,
         num.threads = 1,
         inla.mode = "experimental")
     }, error = function(e) NULL)
@@ -723,7 +623,6 @@ pbapply::pblapply(
 
     # Which way should the parameters of the model fits be reordered to
     # give the correct input to the log-likelihood functions?
-    theta_reordering = c(5, 6, 4, 2, 3, 1)
     theta_reordering = c(4, 5, 2, 3, 1)
 
     # Estimate H
@@ -733,14 +632,6 @@ pbapply::pblapply(
       next
     }
     H = H[theta_reordering, theta_reordering]
-
-    # Estimate single_site_H
-    single_site_H = tryCatch(solve(single_site_fit$misc$cov.intern), error = \(e) NULL)
-    if (is.null(single_site_H)) {
-      warning("Inverting cov.intern failed for i = ", i)
-      next
-    }
-    single_site_H = single_site_H[theta_reordering, theta_reordering]
 
     # Compute all terms of the gradient of the log-likelihood, so we can estimate J
     grads = loglik_grad(
@@ -754,18 +645,6 @@ pbapply::pblapply(
       n_cores = 1,
       sum_terms = FALSE)
 
-    # Compute all terms of the gradient of the log-likelihood, so we can estimate J
-    single_site_grads = loglik_grad(
-      theta = single_site_fit$mode$theta[theta_reordering],
-      y = single_site_data$y,
-      y0 = single_site_data$y0,
-      rho_b = rho_b,
-      dist_to_s0 = single_site_data$dist_to_s0,
-      dist_to_s0_from_mesh = single_site_data$dist_to_s0_from_mesh,
-      A = lapply(single_site_data$obs_index, function(x) A[x, ]),
-      n_cores = 1,
-      sum_terms = FALSE)
-
     # Estimate J. We know that observations from two different times are completely independent
     times = unlist(data$time_index)
     J = 0
@@ -776,19 +655,8 @@ pbapply::pblapply(
       }
     }
 
-    # Estimate J. We know that observations from two different times are completely independent
-    times = unlist(single_site_data$time_index)
-    single_site_J = 0
-    for (k in seq_along(times)) {
-      index = which(times == times[k])
-      for (j in index) {
-        single_site_J = single_site_J + single_site_grads[k, ] %*% single_site_grads[j, , drop = FALSE]
-      }
-    }
-
     # Compute the estimate for C
     C = get_C(H, J)
-    single_site_C = get_C(single_site_H, single_site_J)
 
     # Keep only the relevant parts of the model fit, to reduce requirements on file storage
     fit = list(misc = fit$misc, internal.marginals.hyperpar = fit$internal.marginals.hyperpar,
@@ -798,46 +666,34 @@ pbapply::pblapply(
     fit$misc$linkfunctions = NULL
     class(fit) = "inla"
 
-    single_site_fit = list(
-      misc = single_site_fit$misc,
-      internal.marginals.hyperpar = single_site_fit$internal.marginals.hyperpar,
-      mode = list(theta = single_site_fit$mode$theta))
-    single_site_fit$misc$reordering = NULL
-    single_site_fit$misc$family = NULL
-    single_site_fit$misc$linkfunctions = NULL
-    class(single_site_fit) = "inla"
-
     # Create a list containing all the data of interest
-    model_fits = list(
+    model_fit = list(
       fit = fit,
-      single_site_fit = single_site_fit,
       C = C,
-      single_site_C = single_site_C,
       seed = seed,
       rho_b = rho_b,
       theta_reordering = theta_reordering,
       time_index = data$time_index,
-      single_site_time_index = single_site_data$time_index,
-      n = sum(data$n),
-      single_site_n = sum(single_site_data$n))
+      n = sum(data$n))
 
-    attributes(model_fits)$theta_star = theta_star
+    attributes(model_fit)$theta_star = theta_star[-3]
 
     # Try to save the data. This may fail, since we are running several simulations in parallel.
     # If it fails, then wait a little while and try again
     while (TRUE) {
       success = tryCatch({
         tmp = readRDS(filename)
-        tmp[[length(tmp) + 1]] = model_fits
+        tmp[[length(tmp) + 1]] = model_fit
         saveRDS(tmp, filename)
         rm(tmp)
         TRUE
       }, error = function(e) FALSE)
       if (success) break
-
       # Wait a random time between 1 and 10 seconds if we failed to save the data
       Sys.sleep(runif(1, 1, 10))
     }
+
+    0
   })
 parallel::stopCluster(cl)
 
@@ -848,6 +704,10 @@ res = readRDS(filename)
 theta_star = attributes(res[[1]])$theta_star
 theta_reordering = res[[1]]$theta_reordering
 n_theta = length(theta_reordering)
+
+# Parameter names used for creating a latex-friendly table of the results
+theta_names = c("log_lambda", "log_kappa", "log_rho", "log_sigma", "log_precision")
+theta_tex_names = c("lambda", "kappa", "rho", "sigma", "tau")
 
 # If we had any bad runs, remove them
 bad_index = which(sapply(res, length) == 0)
@@ -905,37 +765,34 @@ tmp = is_inside_interval |>
   tidyr::pivot_longer(all_of(theta_names)) |>
   dplyr::group_by(prob, label, name) |>
   dplyr::summarise(coverage = mean(value)) |>
-  dplyr::mutate(name = factor(
-    x = name,
-    levels = theta_names,
-    labels = theta_tex_names)) |>
-  tidyr::pivot_wider(names_from = name, values_from = coverage)
-#tmp = tmp[rep(2 * seq_len(nrow(tmp) / 2), each = 2) - c(0, 1), c(1:2, 4, 3, 7, 6, 8, 5)]
-tmp = tmp[rep(2 * seq_len(nrow(tmp) / 2), each = 2) - c(0, 1), c(1:2, 4, 3, 6, 7, 5)]
+  dplyr::mutate(
+    name = factor(
+      x = name,
+      levels = theta_names,
+      labels = paste0("$\\", theta_tex_names)),
+    label = factor(
+      x = label,
+      levels = c("Unadjusted", "Adjusted"),
+      labels = c("$", "_\\text{adj}$"))) |>
+  tidyr::pivot_wider(names_from = c(name, label), values_from = coverage)
+names(tmp) = sub("_\\$", "$", names(tmp))
+names(tmp) = sub("_\\\\", "\\\\", names(tmp))
+tmp = tmp[, c(1, 8, 3, 7, 2, 10, 5, 11, 6, 9, 4)]
 print(tmp)
 
 # ==============================================
 # Reformat the results into latex tabular format
 # ==============================================
-table = paste(paste(c("Aim", "Method", names(tmp)[-c(1, 2)]), collapse = " & "), "\\\\")
-table[2] = "\\midrule"
+table = paste(paste(c("Aim", names(tmp)[-1]), collapse = " & "), "\\\\")
+table[2] = "\\hline"
 j = 3
 for (i in 1:nrow(tmp)) {
   table[j] = paste(
-    c(tmp$label[i], paste0("$", round(100 * tmp[i, -c(1, 2)], digits = 0), "\\%$")),
+    c(paste0("$", round(100 * tmp$prob[i], digits = 0), "\\%$"),
+      paste0("$", round(100 * tmp[i, -1], digits = 0), "\\%$")),
     collapse = " & ")
-  if (i %% 2 == 1) {
-    table[j] = paste(
-      c(paste0("$", round(100 * tmp$prob[i], digits = 0), "\\%$"), table[j]), collapse = " & ")
-  } else {
-    table[j] = paste(c("", table[j]), collapse = " & ")
-  }
   table[j] = paste(table[j], "\\\\")
   j = j + 1
-  if (i %% 2 == 0 && i != nrow(tmp)) {
-    table[j] = "\\midrule"
-    j = j + 1
-  }
 }
 table = paste(paste(table, collapse = "\n"), "\n")
 

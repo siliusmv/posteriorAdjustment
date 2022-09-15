@@ -72,7 +72,6 @@ in. The simulation-study scripts are:
   paper. It also contains the code for creating the table of coverage percentages displayed in that
   Section. The results of the simulation study are stored in the file
   `inst/extdata/results/low-rank.rds`.
-
 - `3-block-likelihood.R`  
   This script contains the code for running the simulation study described in Section 4.3 of the
   paper. It also contains the code for creating the table of coverage percentages displayed in that
@@ -97,6 +96,10 @@ in. The simulation-study scripts are:
 - `7-self-inconsistency.R`  
   This script demonstrates the problems that are caused by the lack of self-consistency of the
   conditional extremes model, as described in Appendix B of the paper.
+- `8-constraining-Z.R`  
+  This script estimates the correlation structure of a random field that has been constrained by
+  subtraction, using Monte Carlo estimation. The estimated correlation structure is saved in the
+  file `inst/extdata/images/constrained-correlation.pdf`.
 
 ## The `tests/` folder
 

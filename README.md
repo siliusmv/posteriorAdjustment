@@ -93,10 +93,14 @@ in. The simulation-study scripts are:
   spatial Gaussian random field, and then evaluating frequency properties of unadjusted and
   adjusted posteriors. Results of the simulation study are saved in the file
   `inst/extdata/results/gaussian-conditional-extremes.rds`.
-- `7-self-inconsistency.R`  
+- `7-conditional-extremes-fixed-rho_b.R`  
+  This script is almost a replicate of `5-conditional-extremes-adjustment.R`, but we fix `rho_b`
+  instead of computing its posterior. The results of the simulation study are saved in the file
+  `inst/extdata/results/conditional-adjustment-fixed-rho_b.rds`.
+- `8-self-inconsistency.R`  
   This script demonstrates the problems that are caused by the lack of self-consistency of the
   conditional extremes model, as described in Appendix B of the paper.
-- `8-constraining-Z.R`  
+- `9-constraining-Z.R`  
   This script estimates the correlation structure of a random field that has been constrained by
   subtraction, using Monte Carlo estimation. The estimated correlation structure is saved in the
   file `inst/extdata/images/constrained-correlation.pdf`.

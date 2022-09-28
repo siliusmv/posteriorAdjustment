@@ -1,4 +1,5 @@
 devtools::load_all()
+library(stars)
 
 # ==============================================================================
 # Download radar data.
@@ -23,3 +24,20 @@ filename = file.path(downloads_dir(), "radar.nc")
 # This will take some time, and may need to be restarted several times if you have
 # a bad internet connection
 download(urls, args, filename)
+
+# ============================================================================================
+# Download DEM
+# ============================================================================================
+filename = file.path(downloads_dir(), "dem.tif")
+url = "https://hoydedata.no/LaserInnsyn/Home/DownloadFile/56"
+zipfile = file.path(downloads_dir(), "dem.zip")
+download.file(url, zipfile)
+dem_dir = file.path(downloads_dir(), "dem")
+unzip(zipfile, exdir = dem_dir)
+file.remove(zipfile)
+
+files = list.files(dem_dir, full.names = TRUE)
+tif_files = grep("*.tif$", files, value = TRUE)
+
+# Combine all the tif_files into one big raster file
+stars::st_mosaic(tif_files, dst = filename)

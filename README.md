@@ -36,7 +36,8 @@ executed in. The case-study scripts are:
   `inst/extdata/downloads/radar.rds`.
 - `2-process-data.R`  
   This script processes the data from `1-download-data.R` to create the file
-  `inst/extdata/downloads/radar.rds`.
+  `inst/extdata/downloads/radar.rds`. It also creates a map plot containing the data used for
+  the case study, found in the file `inst/extdata/images/height-map.jpg`.
 - `3-examine-marginal-distributions.R`  
   In this script, the marginal empirical cumulative distributions functions of the radar data are
   computed using sliding aggregation windows of different sizes. Different quantiles of the

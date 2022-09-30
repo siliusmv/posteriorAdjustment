@@ -457,6 +457,7 @@ bad_index = which(sapply(res, length) == 0)
 if (any(bad_index)) res = res[-bad_index]
 
 # Estimate credible intervals
+set.seed(1)
 pb = progress_bar(length(res))
 intervals = list()
 for (i in seq_along(res)) {
@@ -520,8 +521,8 @@ tmp = is_inside_interval |>
   tidyr::pivot_wider(names_from = c(name, label), values_from = coverage)
 names(tmp) = sub("_\\$", "$", names(tmp))
 names(tmp) = sub("_\\\\", "\\\\", names(tmp))
-names(tmp) = sub("rho_b_", "{rho_b}_", names(tmp))
-tmp = tmp[, c(1, 9, 3, 8, 2, 12, 6, 11, 5, 13, 7, 10, 4)]
+names(tmp) = sub("\\\\rho_b_", "{\\\\rho_b}_", names(tmp))
+tmp = tmp[, c(1, 9, 3, 8, 5, 13, 2, 12, 6, 11, 7, 10, 4)]
 print(tmp)
 
 # ==============================================

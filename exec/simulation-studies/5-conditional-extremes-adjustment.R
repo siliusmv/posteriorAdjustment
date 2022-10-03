@@ -522,7 +522,7 @@ tmp = is_inside_interval |>
 names(tmp) = sub("_\\$", "$", names(tmp))
 names(tmp) = sub("_\\\\", "\\\\", names(tmp))
 names(tmp) = sub("\\\\rho_b_", "{\\\\rho_b}_", names(tmp))
-tmp = tmp[, c(1, 9, 3, 8, 5, 13, 2, 12, 6, 11, 7, 10, 4)]
+tmp = tmp[, c(1, 9, 3, 8, 2, 13, 7, 12, 6, 11, 5, 10, 4)]
 print(tmp)
 
 # ==============================================
